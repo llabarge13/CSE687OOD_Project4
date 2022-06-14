@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros">
+    <BoostRoot>C:\Program Files\boost\boost_1_79_0</BoostRoot>
+    <BoostLib>C:\Program Files\boost\boost_1_79_0\stage\lib</BoostLib>
+  </PropertyGroup>
+  <PropertyGroup />
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(BoostRoot);..\Interfaces</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(BoostLib);$(SolutionDir)\MapReduce\$(IntDir);$(SolutionDir)\MapLibrary\$(IntDir);$(SolutionDir)\ReduceLibrary\$(IntDir);$(SolutionDir)\$(IntDir)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>MapLibrary.lib;ReduceLibrary.lib;executive.obj;workflow.obj;sorting.obj;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <BuildMacro Include="BoostRoot">
+      <Value>$(BoostRoot)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+    <BuildMacro Include="BoostLib">
+      <Value>$(BoostLib)</Value>
+      <EnvironmentVariable>true</EnvironmentVariable>
+    </BuildMacro>
+  </ItemGroup>
+</Project>
