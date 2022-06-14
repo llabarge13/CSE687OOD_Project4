@@ -124,7 +124,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(BoostLib);..\$(IntDir)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(BoostLib);..\Sockets\$(IntDir)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -141,7 +141,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(BoostLib);..\$(IntDir)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(BoostLib);..\Sockets\$(IntDir)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -158,6 +158,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Interfaces\Interfaces.vcxproj">
       <Project>{aa259646-b2fe-46d5-b7a5-9066031ef3e5}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\Sockets\Sockets.vcxproj">
+      <Project>{83391480-e0b4-4cac-9799-181216a3fc70}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

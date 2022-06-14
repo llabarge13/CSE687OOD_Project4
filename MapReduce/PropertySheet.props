@@ -8,12 +8,12 @@
   <PropertyGroup />
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(BoostRoot);..\Interfaces;..\ReduceLibrary;..\MapLibrary</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(BoostRoot);..\Interfaces;..\ReduceLibrary;..\MapLibrary;..\Sockets</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(BoostLib)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(BoostLib);..\Sockets\$(InterDir)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>BlockingQueue.obj;Comm.obj;Logger.obj;Message.obj;Sockets.obj;Utilities.obj;WindowsHelpers.obj;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

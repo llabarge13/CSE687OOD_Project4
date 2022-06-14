@@ -8,10 +8,13 @@
 // May 12, 2022 - Updated for project 2
 //  Updated for reduce and map DLLs
 #pragma once
-#include "boost\filesystem.hpp"
+#include "boost/filesystem.hpp"
 #include "imap.h"
 #include "sorting.h"
 #include "ireduce.h"
+#include "Comm.h"
+#include "Sockets.h"
+#include "Message.h"
 
 typedef IMap<std::string, std::string>* (*buildMapper)(const boost::filesystem::path&);
 typedef IReduce<std::string, int>* (*buildReducer)(const boost::filesystem::path&);
@@ -55,6 +58,11 @@ private:
 	int num_mappers_;
 	int num_reducers_;
 
+	// Controller socket
+	Sockets::SocketSystem ss_;
+	MsgPassingCommunication::EndPoint* endpoint_;
+	MsgPassingCommunication::Comm* controller_;
+
 	// Validators and setters
 	void setInputDirectory(std::string input_dir_arg);
 	void setTempDirectory(std::string temp_dir_arg);
@@ -66,6 +74,9 @@ private:
 
 	// Partitions files into N partitions/groups
 	static std::vector<std::vector<boost::filesystem::path>> partitionFiles(const std::vector<boost::filesystem::path>& files, int partitions);
+
+
+
 
 	void runMapProcess(const std::vector<boost::filesystem::path>& files, int partitions);
 
