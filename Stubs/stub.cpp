@@ -64,16 +64,32 @@ void Stub::run()
 			BOOST_LOG_TRIVIAL(info) << "map - output directory:" << attrs["output_directory"];
 			BOOST_LOG_TRIVIAL(info) << "map - number of partitions:" << attrs["partitions"];
 
-
-			// validate they are correct, if not send error message to controller
 			boost::filesystem::path output_dir {attrs["output_directory"]};
 			int partitions = std::stoi(attrs["partitions"]);
 			std::vector<boost::filesystem::path> input_files = parseFileList(attrs["input_files"]);
 			std::thread map_thread = std::thread(&Stub::runMapProcess, this, input_files, output_dir, partitions, parseEndpoint(attrs["from"]));
 			map_thread.detach();
-			BOOST_LOG_TRIVIAL(info) << "started map thread";
+			BOOST_LOG_TRIVIAL(info) << "Started map operation.";
 		}
 		
+
+		// Reduce request
+		if (msg.command().compare("run_reduce") == 0
+			&& msg.containsKey("output_directory")
+			&& msg.containsKey("input_files")
+			&& msg.containsKey("partition")) {
+			BOOST_LOG_TRIVIAL(info) << endpoint_.toString() << "received map request.";
+			BOOST_LOG_TRIVIAL(info) << "reduce - input files:" << attrs["input_files"];
+			BOOST_LOG_TRIVIAL(info) << "reduce - output directory:" << attrs["output_directory"];
+			BOOST_LOG_TRIVIAL(info) << "reduce - partition:" << attrs["partition"];
+
+			boost::filesystem::path output_dir{ attrs["output_directory"] };
+			int partition = std::stoi(attrs["partition"]);
+			std::vector<boost::filesystem::path> input_files = parseFileList(attrs["input_files"]);
+			std::thread reduce_thread = std::thread(&Stub::runReduceProcess, this, input_files, output_dir, partition, parseEndpoint(attrs["from"]));
+			reduce_thread.detach();
+			BOOST_LOG_TRIVIAL(info) << "Started reduce operation.";
+		}
 
 	}
 }

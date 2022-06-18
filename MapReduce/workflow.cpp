@@ -379,18 +379,22 @@ void Workflow::run()
 	int reduce_proc_complete = 0;
 	while (reduce_proc_complete != reducer_count) {
 		received_message = this->controller_->getMessage();
+	
+		if (received_message.name().compare("heartbeat") == 0) {
+			BOOST_LOG_TRIVIAL(info) << "Reduce process heartbeat: " << received_message.attributes()["message"];
+		}
 
-		// A reduce process finished
-		if (received_message.attribValue("name").compare("sucess") == 0) {
+		// A map process finished
+		if (received_message.name().compare("success") == 0) {
+			BOOST_LOG_TRIVIAL(info) << "Reduce process completed: " << received_message.attributes()["message"];
 			reduce_proc_complete++;
 		}
 
-		if (received_message.attribValue("name").compare("failure") == 0) {
-			// Reduce process failed
-			BOOST_LOG_TRIVIAL(fatal) << "Reduce process failed. " << received_message.attribValue("message");
+		if (received_message.name().compare("failure") == 0) {
+			// Map process failed
+			BOOST_LOG_TRIVIAL(fatal) << "Reduce process failed. Error: " << received_message.attributes()["message"];
 			exit(1);
 		}
-		// Heartbeat messages will be ignored
 	}
 	
 	// Gather all the intermediate reduce files
@@ -405,17 +409,28 @@ void Workflow::run()
 	
 	// Run final reduce operation on intermediate reduce output files
 	reduce_message = createReduceMessage(this->stubs_[0], reducer_output, this->out_dir_, 0);
+	this->controller_->postMessage(reduce_message);
+
 	// Wait until final reduce operation succeeds
 	received_message = this->controller_->getMessage();
-	while (received_message.attribValue("name").compare("sucess") != 0) {
+	while (received_message.name().compare("success") != 0) {
+		received_message = this->controller_->getMessage();
+
+		// Heartbeat messaage
+		if (received_message.name().compare("heartbeat") == 0) {
+			BOOST_LOG_TRIVIAL(info) << "Reduce process heartbeat: " << received_message.attributes()["message"];
+		}
+
 		// Reduce process failed
-		if (received_message.attribValue("name").compare("failure") == 0) {
-			BOOST_LOG_TRIVIAL(fatal) << "Reduce process failed. " << received_message.attribValue("message");
+		if (received_message.name().compare("failure") == 0) {
+			BOOST_LOG_TRIVIAL(fatal) << "Reduce process failed. Error: " << received_message.attributes()["message"];
 			exit(1);
 		}
-		received_message = this->controller_->getMessage();
-		// Heartbeat messages will be ignored
 	}
+
+
+	// Final reduce operation succeeded
+	BOOST_LOG_TRIVIAL(info) << "Reduce process success: " << received_message.attributes()["message"];
 
 	// Write the success file
 	BOOST_LOG_TRIVIAL(info) << "Writing success file...";
