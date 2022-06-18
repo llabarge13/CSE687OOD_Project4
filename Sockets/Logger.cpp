@@ -114,9 +114,9 @@ int main()
 
   StaticLogger<1>::attach(&std::cout);
   StaticLogger<1>::start();
-  StaticLogger<1>::write("\n");
+   BOOST_LOG_TRIVIAL(debug) <<  ("\n");
   StaticLogger<1>::title("Testing StaticLogger class");
-  StaticLogger<1>::write("\n  static logger at work");
+   BOOST_LOG_TRIVIAL(debug) <<  ("\n  static logger at work");
   Logger& logger = StaticLogger<1>::instance();
   logger.write("\n  static logger still at work");
   logger.stop("\n  stopping static logger");

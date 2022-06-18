@@ -1,5 +1,6 @@
 #pragma once
-#include "boost\filesystem.hpp"
+#include <boost\filesystem.hpp>
+#include <boost\log\trivial.hpp>
 #include "imap.h"
 #include "ireduce.h"
 #include "stub.h"
@@ -20,6 +21,8 @@ public:
 	void run();
 
 private:
+	Sockets::SocketSystem ss_;
+
 	boost::filesystem::path map_lib_path_;
 	boost::filesystem::path reduce_lib_path_;
 

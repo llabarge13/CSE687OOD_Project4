@@ -136,12 +136,14 @@ MsgPassingCommunication::Message Workflow::createMapMessage(const MsgPassingComm
 	
 
 	std::stringstream ss;
+	ss << '"';
 	for (auto it = files.begin(); it != files.end(); it++) {
 		if (it != files.begin()) {
 			ss << ",";
 		}
 		ss << boost::filesystem::absolute(*it).string();
 	}
+	ss << '"';
 	msg.attribute("input_files", ss.str());
 	return msg;
 }
@@ -323,6 +325,8 @@ void Workflow::run()
 	for (int m = 0; m < map_partitions.size(); m++) {
 		map_message = createMapMessage(this->stubs_[stub], map_partitions[m], reducer_count);
 		this->controller_->postMessage(map_message);
+		BOOST_LOG_TRIVIAL(info) << "Sent map request to " << this->stubs_[stub].toString();
+		BOOST_LOG_TRIVIAL(debug) << "Message contents: " << map_message.toString();
 		stub = (stub + 1) % this->stubs_.size();
 	}
 
@@ -333,13 +337,13 @@ void Workflow::run()
 		received_message = this->controller_->getMessage();
 
 		// A map process finished
-		if (received_message.attribValue("command").compare("sucess") == 0) {
+		if (received_message.attribValue("name").compare("sucess") == 0) {
 			map_proc_complete++;
 		}
 
-		if (received_message.attribValue("command").compare("failure") == 0) {
+		if (received_message.attribValue("name").compare("failure") == 0) {
 			// Map process failed
-			BOOST_LOG_TRIVIAL(fatal) << "Map process " << received_message.attribValue("name") << "failed. " << received_message.attribValue("message");
+			BOOST_LOG_TRIVIAL(fatal) << "Map process failed. " << received_message.attribValue("message");
 			exit(1);
 		}
 
@@ -374,13 +378,13 @@ void Workflow::run()
 		received_message = this->controller_->getMessage();
 
 		// A reduce process finished
-		if (received_message.attribValue("command").compare("sucess") == 0) {
+		if (received_message.attribValue("name").compare("sucess") == 0) {
 			reduce_proc_complete++;
 		}
 
-		if (received_message.attribValue("command").compare("failure") == 0) {
+		if (received_message.attribValue("name").compare("failure") == 0) {
 			// Reduce process failed
-			BOOST_LOG_TRIVIAL(fatal) << "Reduce process " << received_message.attribValue("name") << "failed. " << received_message.attribValue("message");
+			BOOST_LOG_TRIVIAL(fatal) << "Reduce process failed. " << received_message.attribValue("message");
 			exit(1);
 		}
 		// Heartbeat messages will be ignored
@@ -401,10 +405,10 @@ void Workflow::run()
 
 	// Wait until final reduce operation succeeds
 	received_message = this->controller_->getMessage();
-	while (received_message.attribValue("message").compare("sucess") != 0) {
+	while (received_message.attribValue("name").compare("sucess") != 0) {
 		// Reduce process failed
-		if (received_message.attribValue("message").compare("failure") == 0) {
-			BOOST_LOG_TRIVIAL(fatal) << "Reduce process " << received_message.attribValue("name") << "failed.";
+		if (received_message.attribValue("name").compare("failure") == 0) {
+			BOOST_LOG_TRIVIAL(fatal) << "Reduce process failed. " << received_message.attribValue("message");
 			exit(1);
 		}
 		received_message = this->controller_->getMessage();

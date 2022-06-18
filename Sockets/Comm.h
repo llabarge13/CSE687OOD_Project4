@@ -27,7 +27,6 @@
 *  ver 1.0 : 03 Oct 2017
 *  - first release
 */
-
 #include "Message.h"
 #include "BlockingQueue.h"
 #include "Sockets.h"
@@ -108,13 +107,13 @@ namespace MsgPassingCommunication
 
       ClientHandler(BlockingQueue<Message>* pQ, const std::string& name = "clientHandler") : pQ_(pQ), clientHandlerName(name)
       {
-          StaticLogger<1>::write("\n  -- starting ClientHandler");
+          BOOST_LOG_TRIVIAL(info) <<("starting ClientHandler");
       }
       //----< shutdown message >-----------------------------------------
 
       ~ClientHandler()
       {
-          StaticLogger<1>::write("\n  -- ClientHandler destroyed;");
+          BOOST_LOG_TRIVIAL(info) <<("ClientHandler destroyed;");
       }
       //----< set BlockingQueue >----------------------------------------
 
@@ -149,14 +148,14 @@ namespace MsgPassingCommunication
                   break;
               }
               Message msg = Message::fromString(msgString);
-              StaticLogger<1>::write("\n  -- " + clientHandlerName + " RecvThread read message: " + msg.name());
+              BOOST_LOG_TRIVIAL(info) <<(clientHandlerName + " RecvThread read message: " + msg.name());
               //std::cout << "\n  -- " + clientHandlerName + " RecvThread read message: " + msg.name();
               pQ_->enQ(msg);
               //std::cout << "\n  -- message enqueued in rcvQ";
               if (msg.command() == "quit")
                   break;
           }
-          StaticLogger<1>::write("\n  -- terminating ClientHandler thread");
+          BOOST_LOG_TRIVIAL(info) <<("terminating ClientHandler thread");
       }
   private:
       BlockingQueue<Message>* pQ_;

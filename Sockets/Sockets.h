@@ -121,6 +121,7 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
+#include <boost\log\trivial.hpp>
 #include <Windows.h>      // Windnows API
 #include <winsock2.h>     // Windows sockets, ver 2
 #include <WS2tcpip.h>     // support for IPv6 and other things

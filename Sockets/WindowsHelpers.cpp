@@ -13,10 +13,11 @@
 
 #define WIN32_LEAN_AND_MEAN
 
-#include <Windows.h>
+
 #include <string>
 #include <winsock2.h>
 #include "WindowsHelpers.h"
+#include <Windows.h>
 
 using namespace WindowsHelpers;
 

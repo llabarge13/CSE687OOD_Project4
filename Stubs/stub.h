@@ -22,7 +22,6 @@ public:
 
 
 private:
-	Sockets::SocketSystem ss_; // may cause problems..should this only be loaded once by the executive?
 	MsgPassingCommunication::EndPoint* endpoint_;
 	MsgPassingCommunication::Comm* comm_;
 

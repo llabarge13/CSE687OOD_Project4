@@ -18,6 +18,7 @@
 #include <memory>
 #include <functional>
 #include <exception>
+#include <boost\log\trivial.hpp>
 #include "Utilities.h"
 #include "Logger.h"
 
@@ -36,7 +37,7 @@ SocketSystem::SocketSystem()
 {
   int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
   if (iResult != 0) {
-    Show::write("\n  WSAStartup failed with error = " + Conv<int>::toString(iResult));
+     BOOST_LOG_TRIVIAL(debug) <<  ("  WSAStartup failed with error = " + Conv<int>::toString(iResult));
   }
 }
 //-----< destructor frees winsock lib >--------------------------------------
@@ -44,7 +45,7 @@ SocketSystem::SocketSystem()
 SocketSystem::~SocketSystem()
 {
   int error = WSACleanup();
-  Show::write("\n  -- Socket System cleaning up\n");
+   BOOST_LOG_TRIVIAL(debug) <<  ("Socket System cleaning up\n");
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -228,7 +229,7 @@ std::string Socket::recvString(byte terminator)
     iResult = ::recv(socket_, buffer, buflen, 0);
     if (iResult == 0 || iResult == INVALID_SOCKET)
     {
-      //StaticLogger<1>::write("\n  -- invalid socket in Socket::recvString");
+      //StaticLogger<1>::write("invalid socket in Socket::recvString");
       break;
     }
     if (buffer[0] == terminator)
@@ -323,7 +324,7 @@ SocketConnecter& SocketConnecter::operator=(SocketConnecter&& s)
 
 SocketConnecter::~SocketConnecter()
 {
-  Show::write("\n  -- SocketConnecter instance destroyed");
+   BOOST_LOG_TRIVIAL(debug) <<  ("SocketConnecter instance destroyed");
 }
 //----< request to connect to ip and port >----------------------------------
 
@@ -336,7 +337,7 @@ bool SocketConnecter::connect(const std::string& ip, size_t port)
   const char* pTemp = ip.c_str();
   iResult = getaddrinfo(pTemp, sPort.c_str(), &hints, &result);  // was DEFAULT_PORT
   if (iResult != 0) {
-    Show::write("\n  -- getaddrinfo failed with error: " + Conv<int>::toString(iResult));
+     BOOST_LOG_TRIVIAL(debug) <<  ("getaddrinfo failed with error: " + Conv<int>::toString(iResult));
     return false;
   }
 
@@ -362,13 +363,13 @@ bool SocketConnecter::connect(const std::string& ip, size_t port)
 
     // convert the IP to a string and print it:
     inet_ntop(ptr->ai_family, addr, ipstr, sizeof ipstr);
-    //printf("\n  %s: %s", ipver, ipstr);
+    //printf("  %s: %s", ipver, ipstr);
 
     // Create a SOCKET for connecting to server
     socket_ = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
     if (socket_ == INVALID_SOCKET) {
       int error = WSAGetLastError();
-      Show::write("\n\n  -- socket failed with error: " + Conv<int>::toString(error));
+       BOOST_LOG_TRIVIAL(debug) <<  ("\n  -- socket failed with error: " + Conv<int>::toString(error));
       return false;
     }
 
@@ -376,7 +377,7 @@ bool SocketConnecter::connect(const std::string& ip, size_t port)
     if (iResult == SOCKET_ERROR) {
       socket_ = INVALID_SOCKET;
       int error = WSAGetLastError();
-      Show::write("\n  -- WSAGetLastError returned " + Conv<int>::toString(error));
+       BOOST_LOG_TRIVIAL(debug) <<  ("WSAGetLastError returned " + Conv<int>::toString(error));
       continue;
     }
     break;
@@ -386,7 +387,7 @@ bool SocketConnecter::connect(const std::string& ip, size_t port)
 
   if (socket_ == INVALID_SOCKET) {
     int error = WSAGetLastError();
-    Show::write("\n  -- unable to connect to server, error = " + Conv<int>::toString(error));
+     BOOST_LOG_TRIVIAL(debug) <<  ("unable to connect to server, error = " + Conv<int>::toString(error));
     return false;
   }
   return true;
@@ -438,22 +439,22 @@ SocketListener& SocketListener::operator=(SocketListener&& s)
 
 SocketListener::~SocketListener()
 {
-  Show::write("\n  -- SocketListener instance destroyed");
+   BOOST_LOG_TRIVIAL(debug) <<  ("SocketListener instance destroyed");
 }
 //----< binds SocketListener to a network adddress on local machine >--------
 
 bool SocketListener::bind()
 {
-  Show::write("\n  -- staring bind operation");
+   BOOST_LOG_TRIVIAL(debug) <<  ("staring bind operation");
 
   // Resolve the server address and port
 
   size_t uport = ::htons((u_short)port_);
-  StaticLogger<1>::write("\n  -- netstat uport = " + Utilities::Converter<size_t>::toString(uport));
+  StaticLogger<1>::write("netstat uport = " + Utilities::Converter<size_t>::toString(uport));
   std::string sPort = Conv<size_t>::toString(uport);
   iResult = getaddrinfo(NULL, sPort.c_str(), &hints, &result);
   if (iResult != 0) {
-    Show::write("\n  -- getaddrinfo failed with error: " + Conv<int>::toString(iResult));
+     BOOST_LOG_TRIVIAL(debug) <<  ("getaddrinfo failed with error: " + Conv<int>::toString(iResult));
     return false;
   }
 
@@ -466,17 +467,17 @@ bool SocketListener::bind()
     socket_ = socket(pResult->ai_family, pResult->ai_socktype, pResult->ai_protocol);
     if (socket_ == INVALID_SOCKET) {
       int error = WSAGetLastError();
-      Show::write("\n  -- socket failed with error: " + Conv<int>::toString(error));
+       BOOST_LOG_TRIVIAL(debug) <<  ("socket failed with error: " + Conv<int>::toString(error));
       continue;
     }
-    Show::write("\n  -- server created ListenSocket");
+     BOOST_LOG_TRIVIAL(debug) <<  ("server created ListenSocket");
 
     // Setup the TCP listening socket
 
     iResult = ::bind(socket_, pResult->ai_addr, (int)pResult->ai_addrlen);
     if (iResult == SOCKET_ERROR) {
       int error = WSAGetLastError();
-      Show::write("\n  -- bind failed with error: " + Conv<int>::toString(error));
+       BOOST_LOG_TRIVIAL(debug) <<  ("bind failed with error: " + Conv<int>::toString(error));
       socket_ = INVALID_SOCKET;
       continue;
     }
@@ -487,22 +488,22 @@ bool SocketListener::bind()
     }
   }
   freeaddrinfo(result);
-  Show::write("\n  -- bind operation complete");
+   BOOST_LOG_TRIVIAL(debug) <<  ("bind operation complete");
   return true;
 }
 //----< put SocketListener in listen mode, doesn't block >-------------------
 
 bool SocketListener::listen()
 {
-  Show::write("\n  -- starting TCP listening socket setup");
+   BOOST_LOG_TRIVIAL(debug) <<  ("starting TCP listening socket setup");
   iResult = ::listen(socket_, SOMAXCONN);
   if (iResult == SOCKET_ERROR) {
     int error = WSAGetLastError();
-    Show::write("\n  -- listen failed with error: " + Conv<int>::toString(error));
+     BOOST_LOG_TRIVIAL(debug) <<  ("listen failed with error: " + Conv<int>::toString(error));
     socket_ = INVALID_SOCKET;
     return false;
   }
-  Show::write("\n  -- server TCP listening socket setup complete");
+   BOOST_LOG_TRIVIAL(debug) <<  ("server TCP listening socket setup complete");
   return true;
 }
 //----< accepts incoming requrests to connect - blocking call >--------------
@@ -514,9 +515,9 @@ Socket SocketListener::accept()
   if (!clientSocket.validState()) {
     acceptFailed_ = true;
     int error = WSAGetLastError();
-    Show::write("\n  -- server accept failed with error: " + Conv<int>::toString(error));
-    Show::write(
-      "\n  -- this occurs when application shuts down while listener thread is blocked on Accept call"
+     BOOST_LOG_TRIVIAL(debug) <<  ("server accept failed with error: " + Conv<int>::toString(error));
+     BOOST_LOG_TRIVIAL(debug) <<  (
+      "this occurs when application shuts down while listener thread is blocked on Accept call"
     );
     return clientSocket;
   }
@@ -563,45 +564,45 @@ void ClientHandler::operator()(Socket& socket_)
     // interpret test command
 
     std::string command = Socket::removeTerminator(socket_.recvString());
-    Show::write("\n  server rcvd command: " + command);
+     BOOST_LOG_TRIVIAL(debug) <<  ("  server rcvd command: " + command);
     if (command == "Done")
     {
-      Show::write("\n  server sent : " + command);
+       BOOST_LOG_TRIVIAL(debug) <<  ("  server sent : " + command);
       socket_.sendString(command);
       break;
     }
     if (command.size() == 0)
     {
-      Show::write("\n  client connection closed");
+       BOOST_LOG_TRIVIAL(debug) <<  ("  client connection closed");
       break;
     }
-    //Show::write("\n  server recvd: " + command);
+    // BOOST_LOG_TRIVIAL(debug) <<  ("  server recvd: " + command);
 
     if (command == "TEST_STRING_HANDLING")
     {
       if (testStringHandling(socket_))
-        Show::write("\n  ----String Handling test passed\n");
+         BOOST_LOG_TRIVIAL(debug) <<  ("  ----String Handling test passed\n");
       else
-        Show::write("\n  ----String Handling test failed\n");
+         BOOST_LOG_TRIVIAL(debug) <<  ("  ----String Handling test failed\n");
       continue; // go back and get another command
     }
     if (command == "TEST_BUFFER_HANDLING")
     {
       if (testBufferHandling(socket_))
-        Show::write("\n  ----Buffer Handling test passed\n");
+         BOOST_LOG_TRIVIAL(debug) <<  ("  ----Buffer Handling test passed\n");
       else
-        Show::write("\n  ----Buffer Handling test failed\n");
+         BOOST_LOG_TRIVIAL(debug) <<  ("  ----Buffer Handling test failed\n");
       continue;  // get another command
     }
   }
 
   // we get here if command isn't requesting a test, e.g., "TEST_STOP"
 
-  Show::write("\n");
-  Show::write("\n  ClientHandler socket connection closing");
+   BOOST_LOG_TRIVIAL(debug) <<  ("");
+   BOOST_LOG_TRIVIAL(debug) <<  ("  ClientHandler socket connection closing");
   socket_.shutDown();
   socket_.close();
-  Show::write("\n  ClientHandler thread terminating");
+   BOOST_LOG_TRIVIAL(debug) <<  ("  ClientHandler thread terminating");
 }
 
 //----< test string handling >-----------------------------------------------
@@ -619,12 +620,12 @@ bool ClientHandler::testStringHandling(Socket& socket_)
       return false;
     if (str.size() > 0)
     {
-      //Show::write("\n  bytes recvd at server: " + toString(str.size() + 1));
-      Show::write("\n  server rcvd : " + str);
+      // BOOST_LOG_TRIVIAL(debug) <<  ("  bytes recvd at server: " + toString(str.size() + 1));
+       BOOST_LOG_TRIVIAL(debug) <<  ("  server rcvd : " + str);
 
       if (socket_.sendString(str))
       {
-        Show::write("\n  server sent : " + str);
+         BOOST_LOG_TRIVIAL(debug) <<  ("  server sent : " + str);
       }
       else
       {
@@ -639,7 +640,7 @@ bool ClientHandler::testStringHandling(Socket& socket_)
     }
   }
   socket_.sendString("TEST_STRING_HANDLING_END");
-  Show::write("\n  End of string handling test in ClientHandler");
+   BOOST_LOG_TRIVIAL(debug) <<  ("  End of string handling test in ClientHandler");
   return true;
 }
 
@@ -664,24 +665,24 @@ bool ClientHandler::testBufferHandling(Socket& socket_)
       std::string temp;
       for (size_t i = 0; i < BufLen; ++i)
         temp += buffer[i];
-      //Show::write("\n  bytes recvd at server: " + toString(BufLen));
-      Show::write("\n  server rcvd : " + temp);
+      // BOOST_LOG_TRIVIAL(debug) <<  ("  bytes recvd at server: " + toString(BufLen));
+       BOOST_LOG_TRIVIAL(debug) <<  ("  server rcvd : " + temp);
      
       buffer[BufLen - 1] = '\0';
       if (socket_.send(BufLen, buffer))
       {
-        Show::write("\n  server sent : " + std::string(buffer));
+         BOOST_LOG_TRIVIAL(debug) <<  ("  server sent : " + std::string(buffer));
       }
       else
       {
-        Show::write("\n  server send failed");
+         BOOST_LOG_TRIVIAL(debug) <<  ("  server send failed");
         return false;
       }
       if (temp.find("TEST_END") != std::string::npos)
       {
         //std::string out = "TEST_END";
         //socket_.send(out.size(), (Socket::byte*)out.c_str());
-        //Show::write("\n  server sent : " + out);
+        // BOOST_LOG_TRIVIAL(debug) <<  ("  server sent : " + out);
         break;
       }
     }
@@ -690,7 +691,7 @@ bool ClientHandler::testBufferHandling(Socket& socket_)
       break;
     }
   }
-  Show::write("\n  End of buffer handling test in ClientHandler");
+   BOOST_LOG_TRIVIAL(debug) <<  ("  End of buffer handling test in ClientHandler");
   ::Sleep(4000);
   return true;
 }
@@ -701,30 +702,30 @@ void clientTestStringHandling(Socket& si)
 {
   std::string command = "TEST_STRING_HANDLING";
   si.sendString(command);
-  Show::write("\n  client sent : " + command);
+   BOOST_LOG_TRIVIAL(debug) <<  ("  client sent : " + command);
 
   for (size_t i = 0; i < 5; ++i)
   {
     std::string text = "Hello World " + std::string("#") + Conv<size_t>::toString(i + 1);
     si.sendString(text);
-    Show::write("\n  client sent : " + text);
+     BOOST_LOG_TRIVIAL(debug) <<  ("  client sent : " + text);
   }
   command = "TEST_END";
   si.sendString(command);
-  Show::write("\n  client sent : " + command);
+   BOOST_LOG_TRIVIAL(debug) <<  ("  client sent : " + command);
 
   while (true)
   {
     std::string str = Socket::removeTerminator(si.recvString());
     if (str.size() == 0)
     {
-      Show::write("\n  client detected closed connection");
+       BOOST_LOG_TRIVIAL(debug) <<  ("  client detected closed connection");
       break;
     }
-    Show::write("\n  client recvd: " + str);
+     BOOST_LOG_TRIVIAL(debug) <<  ("  client recvd: " + str);
     if (str == "TEST_END")
     {
-      Show::write("\n  End of string handling test in client");
+       BOOST_LOG_TRIVIAL(debug) <<  ("  End of string handling test in client");
       break;
     }
   }
@@ -735,7 +736,7 @@ void clientTestBufferHandling(Socket& si)
 {
   std::string command = "TEST_BUFFER_HANDLING";
   si.sendString(command);
-  Show::write("\n  client sent : " + command);
+   BOOST_LOG_TRIVIAL(debug) <<  ("  client sent : " + command);
 
   const int BufLen = 20;
   Socket::byte buffer[BufLen];
@@ -752,7 +753,7 @@ void clientTestBufferHandling(Socket& si)
     }
     buffer[BufLen - 1] = '\0';
     si.send(BufLen, buffer);
-    Show::write("\n  client sent : " + std::string(buffer));
+     BOOST_LOG_TRIVIAL(debug) <<  ("  client sent : " + std::string(buffer));
   }
   std::string text = "TEST_END";
   for (size_t i = 0; i < BufLen; ++i)
@@ -764,7 +765,7 @@ void clientTestBufferHandling(Socket& si)
   }
   buffer[BufLen - 1] = '\0';
   si.send(BufLen, buffer);
-  Show::write("\n  client sent : " + std::string(buffer));
+   BOOST_LOG_TRIVIAL(debug) <<  ("  client sent : " + std::string(buffer));
 
   bool ok;
   std::string collector;
@@ -775,20 +776,20 @@ void clientTestBufferHandling(Socket& si)
     ok = si.recv(BufLen, buffer);
     if (!ok)
     {
-      Show::write("\n  client unable to receive");
+       BOOST_LOG_TRIVIAL(debug) <<  ("  client unable to receive");
       break;
     }
     std::string str(buffer);
     collector += str;
     if (str.size() == 0)
     {
-      Show::write("\n  client detected closed connection");
+       BOOST_LOG_TRIVIAL(debug) <<  ("  client detected closed connection");
       break;
     }
-    Show::write("\n  client rcvd : " + str);
+     BOOST_LOG_TRIVIAL(debug) <<  ("  client rcvd : " + str);
     if (collector.find("TEST_END") != std::string::npos)
     {
-      Show::write("\n  End of buffer handling test in client");
+       BOOST_LOG_TRIVIAL(debug) <<  ("  End of buffer handling test in client");
       break;
     }
   }
@@ -811,7 +812,7 @@ int main(int argc, char* argv[])
 
     while (!si.connect("localhost", 9070))
     {
-      Show::write("\n  client waiting to connect");
+       BOOST_LOG_TRIVIAL(debug) <<  ("  client waiting to connect");
       ::Sleep(100);
     }
 
@@ -827,14 +828,14 @@ int main(int argc, char* argv[])
 
     si.sendString("TEST_STOP");
 
-    Show::write("\n\n  client calling send shutdown\n");
+     BOOST_LOG_TRIVIAL(debug) <<  ("\n  client calling send shutdown\n");
     si.shutDownSend();
     sl.stop();
   }
   catch (std::exception& ex)
   {
-    std::cout << "\n  Exception caught:";
-    std::cout << "\n  " << ex.what() << "\n\n";
+    std::cout << "  Exception caught:";
+    std::cout << "  " << ex.what() << "\n";
   }
 }
 

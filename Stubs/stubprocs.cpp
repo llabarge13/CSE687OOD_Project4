@@ -21,7 +21,7 @@ void init()
 
 int main(int argc, char* argv[])
 {
-    init();
+    //init();
 
     std::string map_dll;
     std::string reduce_dll;
@@ -67,8 +67,21 @@ int main(int argc, char* argv[])
     Executive* executive = new Executive(map_dll, reduce_dll, stub_endpoints);
    // executive->run();
 
-    std::cout << "\n  Press enter to stop stubs";
-    _getche();
+    MsgPassingCommunication::EndPoint ep1("localhost", 9191);
+    MsgPassingCommunication::Comm comm1(ep1, "comm1");
+    comm1.start();
+
+    MsgPassingCommunication::EndPoint ep2("localhost", 9091);
+
+
+ 
+    MsgPassingCommunication::Message msg;
+    msg.name("msg #1");
+    msg.to(ep2);
+    msg.from(ep1);
+    comm1.postMessage(msg);
 
    // delete executive;
+
+    while (true);
 }

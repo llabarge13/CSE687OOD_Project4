@@ -66,20 +66,35 @@ const MsgPassingCommunication::EndPoint& Stub::getEndpoint() const
 
 void Stub::run()
 {
+	BOOST_LOG_TRIVIAL(info) << endpoint_->toString() << " started running";
 	MsgPassingCommunication::Message msg;
 	while (true) {
+		BOOST_LOG_TRIVIAL(info) << endpoint_->toString() << " waiting for message.";
 		msg = comm_->getMessage();
+		BOOST_LOG_TRIVIAL(info) << endpoint_->toString() << "received messsage: " << msg.toString();
+	
+		std::unordered_map<std::string, std::string> attrs = msg.attributes();
+		// Map request
+		if (msg.command().compare("run_map") 
+			&& msg.containsKey("output_directory") 
+			&& msg.containsKey("input_files")
+			&& msg.containsKey("partitions")) {
+			BOOST_LOG_TRIVIAL(info) << endpoint_->toString() << "received map request.";
+			BOOST_LOG_TRIVIAL(info) << "map - input files:" << attrs["input_files"];
+			BOOST_LOG_TRIVIAL(info) << "map - output directory:" << attrs["output_directory"];
+			BOOST_LOG_TRIVIAL(info) << "map - number of partitions:" << attrs["partitions"];
 
-		if (msg.attribValue("command").compare("run_map") == 0) {
-			// start a map thread
+
+			// validate they are correct, if not send error message to controller
+			boost::filesystem::path ouput_dir {attrs["output_directory"]};
+			int partitions = std::stoi(attrs["partitions"]);
+			// parse input files
 		}
+		
 
-		if (msg.attribValue("command").compare("run_reduce") == 0) {
-
-			// start a reduce thread
-		}
 	}
 }
+
 
 
 void Stub::runMapProcess(const std::vector<boost::filesystem::path>& files, 

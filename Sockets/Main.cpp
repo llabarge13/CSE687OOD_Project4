@@ -209,6 +209,7 @@ void ThreadProcClnt2()
     size_t IMax = 3;
     for (size_t i = 0; i < IMax; ++i)
     {
+
         Message msg(serverEP, clientEP);
         msg.name("client #2 : msg #" + Utilities::Converter<size_t>::toString(i));
         std::cout << "\n  " + comm.name() + " posting:  " << msg.name();
