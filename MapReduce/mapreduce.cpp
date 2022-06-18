@@ -34,27 +34,31 @@ int main(int argc, char* argv[])
     std::string input_dir;
     std::string inter_dir;
     std::string output_dir;
-    std::string map_dll;
-    std::string reduce_dll;
+    //std::string map_dll;
+    //std::string reduce_dll;
     int map_count;
     int reduce_count;
+    int controller_port;
+    std::vector<std::string> stub_endpoints;
 
     // Build argument parser
     boost::program_options::options_description desc("Allowed options");
     desc.add_options()
         ("help", "Show options")
         ("version", "Verison number")
-        ("input", boost::program_options::value<std::string>(), "Input directory path. Required.")
-        ("temp", boost::program_options::value<std::string>(), "Intermediate directory path. Required.")
-        ("output", boost::program_options::value<std::string>(), "Output directory path. Required.")
-        ("map-dll", boost::program_options::value<std::string>(), "Path to map DLL. Required.")
-        ("reduce-dll", boost::program_options::value<std::string>(), "Path to reduce DLL. Required.")
+        ("input", boost::program_options::value<std::string>(&input_dir), "Input directory path. Required.")
+        ("temp", boost::program_options::value<std::string>(&inter_dir), "Intermediate directory path. Required.")
+        ("output", boost::program_options::value<std::string>(&output_dir), "Output directory path. Required.")
+        ("stubs", boost::program_options::value<std::vector<std::string>>(&stub_endpoints)->multitoken(), "Endpoint(s) for map/reduce stub(s). Required.")
+        ("port", boost::program_options::value<int>(&controller_port)->default_value(8080), "Port for workflow/controller process. Optional. Defaults to 8080.")
         ("mappers", boost::program_options::value<int>(&map_count)->default_value(2), "Number of map threads. Optional. Defaults to 2.")
         ("reducers", boost::program_options::value<int>(&reduce_count)->default_value(3), "Number of reduce threads. Optional. Defaults to 3.")
     ;
 
     boost::program_options::variables_map vm;
-    boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
+    boost::program_options::store(boost::program_options::command_line_parser(argc, argv).options(desc).style(
+        boost::program_options::command_line_style::unix_style ^ boost::program_options::command_line_style::allow_short
+    ).run(), vm);
     boost::program_options::notify(vm);
 
     if (vm.count("help")) {
@@ -69,59 +73,36 @@ int main(int argc, char* argv[])
     }
 
     // Required arguments
-    if (vm.count("input")) {
-        input_dir = vm["input"].as<std::string>();
-    }
-    else {
+    if (!vm.count("input")) {
         BOOST_LOG_TRIVIAL(fatal) << "Missing input directory. An input directory must be provided.";
         return 1;
     }
 
-    if (vm.count("temp")) {
-        inter_dir = vm["temp"].as<std::string>();
-    }
-    else {
+    if (!vm.count("temp")) {
         BOOST_LOG_TRIVIAL(fatal) << "Missing temporary file directory. An temporary directory must be provided.";
         return 1;
     }
 
-    if (vm.count("output")) {
-        output_dir = vm["output"].as<std::string>();
-    }
-    else {
+    if (!vm.count("output")) {
         BOOST_LOG_TRIVIAL(fatal) << "Missing output directory. An output directory must be provided.";
         return 1;
     }
 
-    if (vm.count("map-dll")) {
-        map_dll = vm["map-dll"].as<std::string>();
-    }
-    else {
-        BOOST_LOG_TRIVIAL(fatal) << "Missing path to map DLL. A map DLL must be provided.";
+    if (!vm.count("stubs")) {
+        BOOST_LOG_TRIVIAL(fatal) << "Missing endpoint(s) for map/reduce stub(s). Endpoint(s) must be provided";
         return 1;
     }
 
-    if (vm.count("reduce-dll")) {
-        reduce_dll = vm["reduce-dll"].as<std::string>();
-    }
-    else {
-        BOOST_LOG_TRIVIAL(fatal) << "Missing path to reduce DLL. A map DLL must be provided.";
-        return 1;
-    }
-
-
-    // Optional arguments
-    if (vm.count("mappers")) {
-        map_count = vm["mappers"].as<int>();
-    }
-
-    if (vm.count("reducers")) {
-        reduce_count = vm["reducers"].as<int>();
-    }
 
 
     // Instantiate an executor
-    Executive* executive = new Executive(input_dir, inter_dir, output_dir, map_dll, reduce_dll, map_count, reduce_count);
+    Executive* executive = new Executive(input_dir, 
+        inter_dir,
+        output_dir, 
+        map_count, 
+        reduce_count,
+        controller_port,
+        stub_endpoints);
 
     // Use the executor to run the workflow
     executive->run();

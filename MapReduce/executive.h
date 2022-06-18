@@ -23,10 +23,10 @@ class Executive
 		Executive(std::string target_dir, 
 			std::string intermediate_dir,
 			std::string out_dir,
-			std::string map_dll_path, 
-			std::string reduce_dll_path, 
 			int num_mappers,
-			int num_reducers);
+			int num_reducers,
+			int controller_port,
+			std::vector<std::string> stub_endpoints);
 
 		~Executive();
 		// Calls workflow to run

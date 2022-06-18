@@ -21,29 +21,27 @@
 #include <boost\filesystem.hpp>
 #include <boost\filesystem\fstream.hpp>
 #include <boost\log\trivial.hpp>
-#include "sorting.h"
 #include "workflow.h"
+
 #include "windows.h"
 
 // Constructor that creates boost::filesystem::path objects for the input directory, intermediate files directory and the output directory
 Workflow::Workflow(std::string input_dir_arg,
 	std::string inter_dir_arg,
 	std::string output_dir_arg,
-	std::string map_dll_path,
-	std::string reduce_dll_path,
 	int num_mappers,
-	int num_reducers)
+	int num_reducers,
+	int controller_port,
+	std::vector<std::string> stub_endpoints)
 {
 	BOOST_LOG_TRIVIAL(debug) << "Debug in Workflow constructor: Entering constructor.";
 
 	this->num_mappers_ = num_mappers;
 	this->num_reducers_ = num_reducers;
 
-	// Get DLL handle for map library
-	aquireMapDLL(map_dll_path);
 
-	// Get DLL handlwe for reduce library
-	aquireReduceDLL(reduce_dll_path);
+	// Start the controller socket and validate the stubs
+	startController(controller_port, stub_endpoints);
 
 	// Set the input, temp and output directories
 	setInputDirectory(input_dir_arg);
@@ -60,89 +58,119 @@ Workflow::~Workflow()
 		boost::filesystem::remove_all(it->path());
 	}
 
-	FreeLibrary(hDLL_map_);
-	FreeLibrary(hDLL_reduce_);
+	// Shutdown the socket
+	this->controller_->stop();
+
 }
 
-// Aquire functions in the MapLibrary DLL
-void Workflow::aquireMapDLL(std::string path_to_dll)
-{
+void Workflow::startController(int port, std::vector<std::string> stub_endpoints) {
 
-	// Check map DLL is a regular file 
-	if (!(boost::filesystem::is_regular_file(path_to_dll)))
-	{
-		BOOST_LOG_TRIVIAL(fatal) << "Fatal in Workflow constructor: Map DLL is not a regular file.";
-		exit(-1);
+	// Start the controller socket
+	this->endpoint_ = new MsgPassingCommunication::EndPoint("localhost", port);
+	try {
+		this->controller_ = new MsgPassingCommunication::Comm(*this->endpoint_, "controller");
+		this->controller_->start();
+		BOOST_LOG_TRIVIAL(info) << "Started controller at localhost:" << port;
+	}
+	catch (const std::exception&) {
+		// Failed to start controller
+		BOOST_LOG_TRIVIAL(fatal) << "Unable to start controller at localhost:" << port;
+		exit(1);
 	}
 
-	// Else get DLL handle for map
-	else
-	{
-		std::wstring widestr = std::wstring(path_to_dll.begin(), path_to_dll.end());
-		const wchar_t* widecstr = widestr.c_str();
+	// Validate endpoints for the stubs, try to connect to them
+	std::string stub_host;
+	int stub_port;
+	MsgPassingCommunication::EndPoint stub_endpoint;
+	bool can_connect;
+	for (std::string stub: stub_endpoints) {
+		// Create endpoint
+		size_t pos = stub.find(':');
+		if (pos != std::string::npos) {
+			stub_host = stub.substr(0, pos);
+			// Convert port to an integer
+			try {
+				stub_port = std::stoi(stub.substr(pos + 1));
 
-		// Create a handle to map DLL
-		hDLL_map_ = LoadLibraryEx(widecstr, NULL, NULL);   // Handle to map DLL
-		if (hDLL_map_ != NULL) {
-			BOOST_LOG_TRIVIAL(info) << "Info in Workflow constructor: Map DLL located.";
-			create_map_ = (buildMapper)GetProcAddress(hDLL_map_, "createMapper");
-
-			// If function pointer to createMap fails to be created, log and exit
-			if (create_map_ == NULL)
-			{
-				BOOST_LOG_TRIVIAL(fatal) << "Fatal in Workflow constructor: Function pointer to createMap is NULL.";
-				exit(-1);
+			} catch (const std::exception&) {
+				// Port is not an integer
+				BOOST_LOG_TRIVIAL(fatal) << "Invalid stub endpoint " << stub;
+				exit(1);
 			}
-			this->map_lib_path_ = boost::filesystem::path{ path_to_dll };
-		}
+			stub_endpoint = MsgPassingCommunication::EndPoint(stub_host, stub_port);
 
-		// Else log that handle of Map DLL failed to be created and exit
-		else
-		{
-			BOOST_LOG_TRIVIAL(fatal) << "Fatal in Workflow constructor: Failed to get handle of map DLL.";
-			exit(-1);
-		}
 
-	}
-}
-
-// Aquire functions in the ReduceLibrary DLL
-void Workflow::aquireReduceDLL(std::string path_to_dll)
-{
-	// Check reduce DLL is a regular file 
-	if (!(boost::filesystem::is_regular_file(path_to_dll)))
-	{
-		BOOST_LOG_TRIVIAL(fatal) << "Fatal in Workflow constructor: Reduce DLL is not a regular file.";
-		exit(-1);
-	}
-	// Else attempt to get a handle for the Reduce DLL
-	else
-	{
-		std::wstring widestr = std::wstring(path_to_dll.begin(), path_to_dll.end());
-		const wchar_t* widecstr = widestr.c_str();
-
-		hDLL_reduce_ = LoadLibraryEx(widecstr, NULL, NULL);   // Handle to Reduce DLL
-		if (hDLL_reduce_ != NULL) {
-			BOOST_LOG_TRIVIAL(info) << "Info in Workflow constructor: Reduce DLL located.";
-			create_reduce_ = (buildReducer)GetProcAddress(hDLL_reduce_, "createReducer");
-
-			// If create_reduce_ function pointer is NULL, then log and exit
-			if (create_reduce_ == NULL)
-			{
-				BOOST_LOG_TRIVIAL(fatal) << "Fatal in Workflow constructor: Function pointer to create_reduce_ is NULL.";
-				exit(-1);
+			// Check controller can connect to the endpoint
+			can_connect = this->controller_->connect(stub_endpoint);
+			// Could not connect to the stub
+			if (!can_connect) {
+				BOOST_LOG_TRIVIAL(fatal) << "Failed to connect to endpoint at " << stub;
+				exit(1);
 			}
-			this->reduce_lib_path_ = boost::filesystem::path{ path_to_dll };
+			else {
+				BOOST_LOG_TRIVIAL(info) << "Connected to endpoint at " << stub;
+			}
+			
+			this->stubs_.push_back(MsgPassingCommunication::EndPoint(stub_host, stub_port));
 		}
-		// Else log failure to get Reduce DLL handle and exit
-		else
-		{
-			BOOST_LOG_TRIVIAL(fatal) << "Fatal in Workflow constructor: Failed to get handle of reduce DLL.";
-			exit(-1);
+		else {
+			BOOST_LOG_TRIVIAL(fatal) << "Invalid stub endpoint " << stub;
+			exit(1);
 		}
 	}
 
 }
+
+// Creates a map message to pass to an endpoint
+MsgPassingCommunication::Message Workflow::createMapMessage(const MsgPassingCommunication::EndPoint& destination,
+	const std::vector<boost::filesystem::path>& files,
+	int partitions)
+
+{
+	MsgPassingCommunication::Message msg;
+	msg.to(destination);
+	msg.from(*(this->endpoint_));
+	msg.command("run_map");
+	msg.attribute("partitions", std::to_string(partitions));
+	msg.attribute("output_directory", boost::filesystem::absolute(this->intermediate_dir_).string());
+	
+
+	std::stringstream ss;
+	for (auto it = files.begin(); it != files.end(); it++) {
+		if (it != files.begin()) {
+			ss << ",";
+		}
+		ss << boost::filesystem::absolute(*it).string();
+	}
+	msg.attribute("input_files", ss.str());
+	return msg;
+}
+
+// Creates a reduce message to pass to an endpoint
+MsgPassingCommunication::Message Workflow::createReduceMessage(const MsgPassingCommunication::EndPoint& destination,
+	const std::vector<boost::filesystem::path>& files,
+	const boost::filesystem::path& output_directory, 
+	int partition)
+{
+	MsgPassingCommunication::Message msg;
+	msg.to(destination);
+	msg.from(*(this->endpoint_));
+	msg.command("run_reduce");
+	msg.attribute("partition", std::to_string(partition));
+	msg.attribute("output_directory", boost::filesystem::absolute(output_directory).string());
+
+
+	std::stringstream ss;
+	for (auto it = files.begin(); it != files.end(); it++) {
+		if (it != files.begin()) {
+			ss << ",";
+		}
+		ss << boost::filesystem::absolute(*it).string();
+	}
+	msg.attribute("input_files", ss.str());
+	return msg;
+}
+
 
 // Validate, create directories
 // Set all of the paths that will be used as data directories
@@ -163,7 +191,7 @@ void Workflow::setInputDirectory(std::string s)
 	{
 		// Path received in arg[1] of cmd line entry is not a directory error
 		BOOST_LOG_TRIVIAL(fatal) << "Fatal in Workflow constructor: arg[1] is not a directory";
-		exit(-1);
+		exit(1);
 	}
 }
 void Workflow::setTempDirectory(std::string s)
@@ -188,7 +216,7 @@ void Workflow::setTempDirectory(std::string s)
 		{
 			// Directory for intermediate files failed to be created
 			BOOST_LOG_TRIVIAL(fatal) << "Fatal in Workflow constructor: directory for intermediate files was not created.";
-			exit(-1);
+			exit(1);
 		}
 
 		// Log that the directory was created 
@@ -226,9 +254,9 @@ void Workflow::setOutputDirectory(std::string s)
 		{
 			// std::cout << "Error creating directory: " << outputDir << std::endl;
 			BOOST_LOG_TRIVIAL(fatal) << "Fatal in Workflow constructor: directory for output files was not created.";
-			exit(-1);
+			exit(1);
 		}
-		// Log that the directory was 
+		// Log that the directory was created
 		else
 		{
 			this->out_dir_ = s;
@@ -241,7 +269,6 @@ void Workflow::setOutputDirectory(std::string s)
 boost::filesystem::path Workflow::getTargetDir()
 {
 	// This function returns the boost::filesystem::path object private data member targetDir
-
 	return this->target_dir_;
 }
 // Getter for intermediate_dir_ data member
@@ -255,18 +282,6 @@ boost::filesystem::path Workflow::getOutDir()
 {
 	// This function returns the boost::filesystem::path object private data member outDir
 	return this->out_dir_;
-}
-
-// Getter for map dll path
-boost::filesystem::path Workflow::getMapLibPath()
-{
-	return this->map_lib_path_;
-}
-
-// Getter for reduce dll path
-boost::filesystem::path Workflow::getReduceLibPath()
-{
-	return this->reduce_lib_path_;
 }
 
 // Run a workflow consisting of map, sort and reduce on all files in target directory
@@ -297,22 +312,39 @@ void Workflow::run()
 		}
 	}
 
-	// TODO: make number of mappers and reducers configurable via the command line
 	int mapper_count = std::min<int>(static_cast<int>(input_files.size()), this->num_mappers_); // Not possible to have more mappers than input files
-	int reducer_count = std::min<int>(static_cast<int>(input_files.size()), this->num_reducers_); // Not possible to have more reduces than input files
+	int reducer_count = std::min<int>(static_cast<int>(input_files.size()), this->num_reducers_); // Not possible to have more reducers than input files
 	std::vector<std::vector<boost::filesystem::path>> map_partitions = partitionFiles(input_files, mapper_count);
 
 
-	// Create the mapper threads
-	std::vector<std::thread> map_threads;
+	// Sen map requests to the stubs
+	MsgPassingCommunication::Message map_message;
+	int stub = 0;
 	for (int m = 0; m < map_partitions.size(); m++) {
-		map_threads.push_back(std::thread(&Workflow::runMapProcess, this, map_partitions[m], reducer_count));
+		map_message = createMapMessage(this->stubs_[stub], map_partitions[m], reducer_count);
+		this->controller_->postMessage(map_message);
+		stub = (stub + 1) % this->stubs_.size();
 	}
 
-	// Wait for all the map threads to finish
-	for (auto t = map_threads.begin(); t != map_threads.end(); t++) {
-		t->join();
+	// Wait until all the map processes finish
+	int map_proc_complete = 0;
+	MsgPassingCommunication::Message received_message;
+	while (map_proc_complete != mapper_count) {
+		received_message = this->controller_->getMessage();
+
+		// A map process finished
+		if (received_message.attribValue("message").compare("sucess") == 0) {
+			map_proc_complete++;
+		}
+
+		if (received_message.attribValue("message").compare("failure") == 0) {
+			// Map process failed
+			BOOST_LOG_TRIVIAL(fatal) << "Map process " << received_message.attribValue("name") << "failed.";
+			exit(1);
+		}
+
 	}
+
 
 	// Group together all the partition files from the mappers to pass to the reducer threads
 	std::vector<std::vector<boost::filesystem::path>> reduce_partitions(this->num_reducers_);
@@ -326,15 +358,32 @@ void Workflow::run()
 		}
 	}
 
-	// Create the reduce threads
-	std::vector<std::thread> reduce_threads;
+
+	// Sen reduce requests to the stubs
+	MsgPassingCommunication::Message reduce_message;
+	stub = 0;
 	for (int r = 0; r < reduce_partitions.size(); r++) {
-		reduce_threads.push_back(std::thread(&Workflow::runReduceProcess, this, reduce_partitions[r], this->intermediate_dir_, r));
+		reduce_message = createReduceMessage(this->stubs_[stub], reduce_partitions[r], this->intermediate_dir_, r);
+		this->controller_->postMessage(reduce_message);
+		stub = (stub + 1) % this->stubs_.size();
 	}
 
-	// Wait for all the reduce threads to finish
-	for (auto t = reduce_threads.begin(); t != reduce_threads.end(); t++) {
-		t->join();
+	// Wait until all the reduce processes finish
+	int reduce_proc_complete = 0;
+	while (reduce_proc_complete != reducer_count) {
+		received_message = this->controller_->getMessage();
+
+		// A reduce process finished
+		if (received_message.attribValue("message").compare("sucess") == 0) {
+			reduce_proc_complete++;
+		}
+
+		if (received_message.attribValue("message").compare("failure") == 0) {
+			// Reduce process failed
+			BOOST_LOG_TRIVIAL(fatal) << "Reduce process " << received_message.attribValue("name") << "failed.";
+			exit(1);
+		}
+		// Heartbeat messages will be ignored
 	}
 	
 	// Gather all the intermediate reduce files
@@ -348,8 +397,19 @@ void Workflow::run()
 	}
 	
 	// Run final reduce operation on intermediate reduce output files
-	runReduceProcess(reducer_output, this->out_dir_, 0);
+	reduce_message = createReduceMessage(this->stubs_[0], reducer_output, this->out_dir_, 0);
 
+	// Wait until final reduce operation succeeds
+	received_message = this->controller_->getMessage();
+	while (received_message.attribValue("message").compare("sucess") != 0) {
+		// Reduce process failed
+		if (received_message.attribValue("message").compare("failure") == 0) {
+			BOOST_LOG_TRIVIAL(fatal) << "Reduce process " << received_message.attribValue("name") << "failed.";
+			exit(1);
+		}
+		received_message = this->controller_->getMessage();
+		// Heartbeat messages will be ignored
+	}
 
 	// Write the success file
 	BOOST_LOG_TRIVIAL(info) << "Writing success file...";
@@ -378,111 +438,3 @@ std::vector<std::vector<boost::filesystem::path>> Workflow::partitionFiles(const
 
 	return file_partitions;
 }
-
-void Workflow::runMapProcess(const std::vector<boost::filesystem::path>& files, int num_partitions)
-{
-	// Instantiate a Map object via the IMap interface
-	IMap<std::string, std::string>* mapper = create_map_(this->intermediate_dir_);
-
-	// Partition the input files
-	std::vector<std::vector<boost::filesystem::path>> partitions = partitionFiles(files, num_partitions);
-
-	// Get the id of the thread to use in the partition file names
-	std::stringstream ss;
-	ss << std::this_thread::get_id();
-	std::string thread_id = ss.str();
-
-	// Process the files in each partition with map
-	boost::filesystem::path input_file_path;
-	boost::filesystem::ifstream input_stream;
-	std::string line;
-	for (int partition = 0; partition < partitions.size(); partition++) {
-		// Output file name is thread id + p{parition number}
-		std::string partition_name = thread_id + "p" + std::to_string(partition);
-
-		for (int file = 0; file < partitions[partition].size(); file++) {
-			// Open the input file
-			boost::filesystem::path current_file = partitions[partition][file];
-			input_stream.open(current_file);
-
-			// File could not be opened
-			if (input_stream.fail() == 1)
-			{
-				BOOST_LOG_TRIVIAL(fatal) << "Fatal in Workflow run(): ifstream could not be opened for " << current_file.filename().string();
-				exit(1);
-			}
-
-			int success = 0;
-			int line_count = 0;
-			BOOST_LOG_TRIVIAL(info) << "Info in Workflow run(): Running map process for " << current_file.filename().string();
-			// Process all lines of the file via map
-			while (std::getline(input_stream, line))
-			{
-				// Increment the line count and call the map object to map the key and the value
-				line_count++;
-				success = mapper->map(partition_name, line);
-
-				// If the map member function of the map object does not return zero (which is a success), then log
-				if (success != 0)
-				{
-					BOOST_LOG_TRIVIAL(error) << "Error in Workflow run(): Map did not successfully process entire file at line " << line_count << " of " << current_file.filename().string();
-					exit(1);
-				}
-			}
-
-			// Log map process has completed for the current file
-			BOOST_LOG_TRIVIAL(info) << "Info in Workflow run(): Map process completed for " << current_file.filename().string();
-
-			// Close the current input stream
-			input_stream.close();
-			line_count = 0;
-		}
-	}
-
-	delete mapper;
-}
-
-	// Workflow::runReduceProcess takes as input all the files that belong to a particular partition
-	// along with the partition id (e.g 0) and the directory to output the reduce file to.
-	// Because we are running multiple reducers, we will get multiple reduce files at the end when the threads return.
-	// We will have to run one final reduce process over all those intermediate files e.g. reduce0.txt, reduce1.txt if we had 2 partitions
-	// The intermeidate reduce files should go in the intermediate dir, not the final output directory, which is why there is an output directory parameter.
-	void Workflow::runReduceProcess(const std::vector<boost::filesystem::path>&files, const boost::filesystem::path & output_directory, int partition)
-	{
-		// Create reducer
-		// The intermeidate reduce files should go in the intermediate dir, not the final output directory, which is why there is an output directory parameter.
-		IReduce<std::string, int>* reducer = create_reduce_(output_directory);
-		// Set the output file name to reduce + partition e.g. reduce0.txt
-		std::string output_filename = "reduce" + std::to_string(partition) + ".txt";
-		reducer->setOutputFileName(output_filename);
-
-		// Run sort on all the files that belong to the partition
-		int sort_success = 0;
-		Sorting* sorter = new Sorting();
-
-		for (int file = 0; file < files.size(); file++)
-		{
-			BOOST_LOG_TRIVIAL(info) << "Running sort on " << files[file].filename().string();
-			sort_success = sorter->sort(files[file]);
-
-			if (sort_success != 0) {
-				BOOST_LOG_TRIVIAL(fatal) << "Failed to process " << files[file].filename().string() << " with sort.";
-				exit(1);
-			}
-		}
-
-		// Run reduce on the output from sort
-		BOOST_LOG_TRIVIAL(info) << "Running reduce operation...";
-		int reducer_success = 0;
-		for (auto const& pair : sorter->getAggregateData())
-		{
-			reducer_success = reducer->reduce(pair.first, pair.second);
-			if (reducer_success != 0) {
-				BOOST_LOG_TRIVIAL(fatal) << "Failed to export to " << reducer->getOutputPath().string() << " with reduce.";
-				exit(1);
-			}
-		}
-		// Delete reducer
-		delete sorter;
-		delete reducer;
-	}

@@ -56,7 +56,7 @@ int Sorting::sort(const boost::filesystem::path& file)
 // and the values are word counts. 
 // e.g. (word, [1, 1])
 const boost::container::map<std::string,
-							std::vector<int>>& Sorting::getAggregateData()
+	std::vector<int>>&Sorting::getAggregateData()
 {
 	return aggregate_data_;
 }

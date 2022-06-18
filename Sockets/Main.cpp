@@ -1,11 +1,11 @@
+#include <iostream>
+#include <functional>
+#include <conio.h>
 #include "Comm.h"
 #include "Logger.h"
 #include "Utilities.h"
 #include "Message.h"
 #include "BlockingQueue.h"
-#include <iostream>
-#include <functional>
-#include <conio.h>
 
 using namespace  MsgPassingCommunication;
 using SUtils = Utilities::StringHelper;

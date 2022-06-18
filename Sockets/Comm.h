@@ -88,6 +88,8 @@ namespace MsgPassingCommunication
     void postMessage(Message msg);
     Message getMessage();
     std::string name();
+    bool connect(EndPoint ep);
+
   private:
     Sender sndr;
     Receiver rcvr;

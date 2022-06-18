@@ -65,6 +65,9 @@
     <ProjectReference Include="..\MapReduce\MapReduce.vcxproj">
       <Project>{c037fab0-659b-43e1-abab-2e88cb49058b}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\Sockets\Sockets.vcxproj">
+      <Project>{83391480-e0b4-4cac-9799-181216a3fc70}</Project>
+    </ProjectReference>
   </ItemGroup>
   <ItemDefinitionGroup />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

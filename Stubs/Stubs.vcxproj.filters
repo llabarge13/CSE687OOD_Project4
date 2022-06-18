@@ -15,21 +15,27 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="stub.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="executive.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="workflow.h">
+    <ClInclude Include="sorting.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="mapreduce.cpp">
+    <ClCompile Include="stub.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="workflow.cpp">
+    <ClCompile Include="stubprocs.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="executive.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sorting.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

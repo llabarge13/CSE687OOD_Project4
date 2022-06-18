@@ -172,5 +172,10 @@ std::string Comm::name()
   return commName;
 }
 
+bool MsgPassingCommunication::Comm::connect(EndPoint ep)
+{
+    return sndr.connect(ep);
+}
+
 //----< test stub >--------------------------------------------------
 

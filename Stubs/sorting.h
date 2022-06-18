@@ -38,8 +38,8 @@ public:
 	// Aggregate data is map of where the key is a word
 	// and the values are word counts. 
 	// e.g. (word, [1, 1])
-	const boost::container::map<std::string, 
-								std::vector<int>>& getAggregateData();
+	const boost::container::map<std::string,
+		std::vector<int>>&getAggregateData();
 
 private:
 	// Stores the sorted/aggregate data in memory
