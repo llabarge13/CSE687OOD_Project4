@@ -333,13 +333,13 @@ void Workflow::run()
 		received_message = this->controller_->getMessage();
 
 		// A map process finished
-		if (received_message.attribValue("message").compare("sucess") == 0) {
+		if (received_message.attribValue("command").compare("sucess") == 0) {
 			map_proc_complete++;
 		}
 
-		if (received_message.attribValue("message").compare("failure") == 0) {
+		if (received_message.attribValue("command").compare("failure") == 0) {
 			// Map process failed
-			BOOST_LOG_TRIVIAL(fatal) << "Map process " << received_message.attribValue("name") << "failed.";
+			BOOST_LOG_TRIVIAL(fatal) << "Map process " << received_message.attribValue("name") << "failed. " << received_message.attribValue("message");
 			exit(1);
 		}
 
@@ -359,7 +359,7 @@ void Workflow::run()
 	}
 
 
-	// Sen reduce requests to the stubs
+	// Send reduce requests to the stubs
 	MsgPassingCommunication::Message reduce_message;
 	stub = 0;
 	for (int r = 0; r < reduce_partitions.size(); r++) {
@@ -374,13 +374,13 @@ void Workflow::run()
 		received_message = this->controller_->getMessage();
 
 		// A reduce process finished
-		if (received_message.attribValue("message").compare("sucess") == 0) {
+		if (received_message.attribValue("command").compare("sucess") == 0) {
 			reduce_proc_complete++;
 		}
 
-		if (received_message.attribValue("message").compare("failure") == 0) {
+		if (received_message.attribValue("command").compare("failure") == 0) {
 			// Reduce process failed
-			BOOST_LOG_TRIVIAL(fatal) << "Reduce process " << received_message.attribValue("name") << "failed.";
+			BOOST_LOG_TRIVIAL(fatal) << "Reduce process " << received_message.attribValue("name") << "failed. " << received_message.attribValue("message");
 			exit(1);
 		}
 		// Heartbeat messages will be ignored
