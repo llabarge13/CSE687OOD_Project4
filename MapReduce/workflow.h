@@ -40,10 +40,6 @@ private:
 	boost::filesystem::path intermediate_dir_;
 	boost::filesystem::path out_dir_;
 
-	// Interfaces to map and reduce librarys 
-	buildMapper create_map_;
-	buildReducer create_reduce_;
-
 	// Configurable number of map and reduce threads
 	int num_mappers_;
 	int num_reducers_;

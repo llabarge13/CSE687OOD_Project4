@@ -50,7 +50,7 @@ std::vector<std::string> StringHelper::split(const std::string& src)
   size_t index = 0;
   do
   {
-    while ((src[index] == ',' || src[index] == '\n') && index < src.length())
+    while ((src[index] == '\n') && index < src.length())
     {
       ++index;
       if (temp.size() > 0)

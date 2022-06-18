@@ -136,14 +136,12 @@ MsgPassingCommunication::Message Workflow::createMapMessage(const MsgPassingComm
 	
 
 	std::stringstream ss;
-	ss << '"';
 	for (auto it = files.begin(); it != files.end(); it++) {
 		if (it != files.begin()) {
 			ss << ",";
 		}
 		ss << boost::filesystem::absolute(*it).string();
 	}
-	ss << '"';
 	msg.attribute("input_files", ss.str());
 	return msg;
 }
@@ -337,11 +335,11 @@ void Workflow::run()
 		received_message = this->controller_->getMessage();
 
 		// A map process finished
-		if (received_message.attribValue("name").compare("sucess") == 0) {
+		if (received_message.name().compare("sucess") == 0) {
 			map_proc_complete++;
 		}
 
-		if (received_message.attribValue("name").compare("failure") == 0) {
+		if (received_message.name().compare("failure") == 0) {
 			// Map process failed
 			BOOST_LOG_TRIVIAL(fatal) << "Map process failed. " << received_message.attribValue("message");
 			exit(1);
@@ -402,7 +400,6 @@ void Workflow::run()
 	
 	// Run final reduce operation on intermediate reduce output files
 	reduce_message = createReduceMessage(this->stubs_[0], reducer_output, this->out_dir_, 0);
-
 	// Wait until final reduce operation succeeds
 	received_message = this->controller_->getMessage();
 	while (received_message.attribValue("name").compare("sucess") != 0) {

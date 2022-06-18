@@ -270,7 +270,7 @@ namespace Sockets
     std::thread ListenThread(
       [&]()
     {
-      StaticLogger<1>::write("\n  -- server waiting for connection");
+      BOOST_LOG_TRIVIAL(info) <<("server waiting for connection");
 
       while (!acceptFailed_)
       {
@@ -283,7 +283,7 @@ namespace Sockets
         if (!clientSocket.validState()) {
           continue;
         }
-        StaticLogger<1>::write("\n  -- server accepted connection");
+        BOOST_LOG_TRIVIAL(info) <<("server accepted connection");
 
         // start thread to handle client request
 
@@ -291,7 +291,7 @@ namespace Sockets
         std::thread clientThread(co, std::move(clientSocket));
         clientThread.detach();  // detach - listener won't access thread again
       }
-      StaticLogger<1>::write("\n  -- Listen thread stopping");
+      BOOST_LOG_TRIVIAL(info) <<("Listen thread stopping");
     }
     );
     ListenThread.detach();
