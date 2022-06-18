@@ -10,12 +10,10 @@
 #include "executive.h"
 
 
-void StubProc(const buildMapper& map, const buildReducer& reduce) {
-	std::string ep = "localhost:9091";
+void stubProc(std::string ep, const buildMapper& map, const buildReducer& reduce) {
 	Stub stub(ep, map, reduce);
 	stub.run();
 }
-
 
 Executive::Executive(std::string map_dll_file,
 	std::string reduce_dll_file,
@@ -24,10 +22,7 @@ Executive::Executive(std::string map_dll_file,
 	acquireMapDLL(map_dll_file);
 	acquireReduceDLL(reduce_dll_file);
 
-	//createStubs(stub_endpoints);
-	
-	std::thread t1 = std::thread(StubProc, create_map_, create_reduce_);
-	t1.detach();
+	createStubs(stub_endpoints);
 }
 
 
@@ -120,20 +115,18 @@ void Executive::acquireReduceDLL(std::string path_to_dll)
 
 
 void Executive::createStubs(std::vector<std::string> stub_endpoints) {
-
-	Stub* stub;
-
 	std::vector<std::thread> stub_threads;
 	for (const std::string& ep : stub_endpoints) {
-		stub = new Stub(ep, create_map_, create_reduce_);
-		stubs_.push_back(*stub);
-		stub_endpoints_.push_back(stub->getEndpoint());
-		stub_threads.push_back(std::thread([stub] { stub->run(); }));
+		stub_threads.push_back(std::thread(Executive::stubProc, ep, create_map_, create_reduce_));
 	}
-
-	//stub->run();
 	
-	//for (auto t = stub_threads.begin(); t != stub_threads.end(); t++) {
-	//	t->detach();
-	//}
+	for (auto t = stub_threads.begin(); t != stub_threads.end(); t++) {
+		t->detach();
+	}
+}
+
+void Executive::stubProc(std::string endpoint, const buildMapper& map, const buildReducer& reduce)
+{
+	Stub stub(endpoint, map, reduce);
+	stub.run();
 }

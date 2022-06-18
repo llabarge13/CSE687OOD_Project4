@@ -44,5 +44,7 @@ private:
 	// Map/reduce stubs
 	std::vector<MsgPassingCommunication::EndPoint> stub_endpoints_;
 	std::vector<Stub> stubs_;
+
+	static void stubProc(std::string endpoint, const buildMapper& map, const buildReducer& reduce);
 };
 

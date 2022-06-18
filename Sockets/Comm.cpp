@@ -20,7 +20,7 @@ using SUtils = Utilities::StringHelper;
 
 Receiver::Receiver(EndPoint ep, const std::string& name) : listener(ep.port), rcvrName(name)
 {
-   BOOST_LOG_TRIVIAL(debug) <<  ("  -- starting Receiver");
+   BOOST_LOG_TRIVIAL(debug) <<  ("starting Receiver");
 }
 //----< returns reference to receive queue >-------------------------
 
@@ -46,7 +46,7 @@ void Receiver::stop()
 Message Receiver::getMessage()
 {
   
-    BOOST_LOG_TRIVIAL(debug) <<  ("  -- " + rcvrName + " deQing message");
+    BOOST_LOG_TRIVIAL(debug) <<  (rcvrName + " deQing message");
   return rcvQ.deQ();
 }
 //----< constructor initializes endpoint object >--------------------
@@ -73,17 +73,17 @@ void Sender::start()
 
       if (msg.command() == "quit")
       {
-         BOOST_LOG_TRIVIAL(debug) <<  ("  -- send thread shutting down");
+         BOOST_LOG_TRIVIAL(debug) <<  ("send thread shutting down");
         return;
       }
-       BOOST_LOG_TRIVIAL(debug) <<  ("  -- " + sndrName + " send thread sending " + msg.name());
+       BOOST_LOG_TRIVIAL(debug) <<  (sndrName + " send thread sending " + msg.name());
       std::string msgStr = msg.toString();
 
       if (msg.to().address != lastEP.address || msg.to().port != lastEP.port)
       {
         connecter.shutDown();
         //connecter.close();
-         BOOST_LOG_TRIVIAL(debug) <<  ("  -- attempting to connect to new endpoint: " + msg.to().toString());
+         BOOST_LOG_TRIVIAL(debug) <<  ("attempting to connect to new endpoint: " + msg.to().toString());
         if (!connect(msg.to()))
         {
            BOOST_LOG_TRIVIAL(debug) <<  (" can't connect");

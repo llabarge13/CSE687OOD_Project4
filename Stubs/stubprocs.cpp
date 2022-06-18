@@ -67,7 +67,7 @@ int main(int argc, char* argv[])
     Executive* executive = new Executive(map_dll, reduce_dll, stub_endpoints);
    // executive->run();
 
-    MsgPassingCommunication::EndPoint ep1("localhost", 9191);
+   /* MsgPassingCommunication::EndPoint ep1("localhost", 9191);
     MsgPassingCommunication::Comm comm1(ep1, "comm1");
     comm1.start();
 
@@ -79,7 +79,7 @@ int main(int argc, char* argv[])
     msg.name("msg #1");
     msg.to(ep2);
     msg.from(ep1);
-    comm1.postMessage(msg);
+    comm1.postMessage(msg);*/
 
    // delete executive;
 

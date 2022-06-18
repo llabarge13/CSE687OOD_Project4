@@ -334,14 +334,19 @@ void Workflow::run()
 	while (map_proc_complete != mapper_count) {
 		received_message = this->controller_->getMessage();
 
+		if (received_message.name().compare("heartbeat") == 0) {
+			BOOST_LOG_TRIVIAL(info) << "Map process heartbeat: " << received_message.attributes()["message"];
+		}
+
 		// A map process finished
-		if (received_message.name().compare("sucess") == 0) {
+		if (received_message.name().compare("success") == 0) {
+			BOOST_LOG_TRIVIAL(info) << "Map process completed: " << received_message.attributes()["message"];
 			map_proc_complete++;
 		}
 
 		if (received_message.name().compare("failure") == 0) {
 			// Map process failed
-			BOOST_LOG_TRIVIAL(fatal) << "Map process failed. " << received_message.attribValue("message");
+			BOOST_LOG_TRIVIAL(fatal) << "Map process failed. Error: " << received_message.attributes()["message"];
 			exit(1);
 		}
 

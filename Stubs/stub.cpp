@@ -1,4 +1,7 @@
 #include <boost\log\trivial.hpp>
+#include <thread>
+#include <chrono>
+#include <future>
 #include "stub.h"
 #include "sorting.h"
 #include "Comm.h"
@@ -10,39 +13,17 @@ Stub::Stub(std::string endpoint,
 	const buildReducer& create_reducer)
 {
 
-	// Parse the endpoint
-	std::string stub_host;
-	int stub_port;
-	size_t pos = endpoint.find(':');
-	if (pos != std::string::npos) {
-		stub_host = endpoint.substr(0, pos);
-		// Convert port to an integer
-		try {
-			stub_port = std::stoi(endpoint.substr(pos + 1));
-
-		}
-		catch (const std::exception&) {
-			// Port is not an integer
-			BOOST_LOG_TRIVIAL(fatal) << "Invalid stub endpoint " << endpoint;
-			exit(1);
-		}
-		endpoint_ = new MsgPassingCommunication::EndPoint(stub_host, stub_port);
-
-	}
-	else {
-		BOOST_LOG_TRIVIAL(fatal) << "Invalid stub endpoint " << endpoint;
-		exit(1);
-	}
+	endpoint_ = parseEndpoint(endpoint);
 
 	// Start the stub
 	try {
-		comm_ = new MsgPassingCommunication::Comm(*endpoint_, endpoint_->toString());
+		comm_ = new MsgPassingCommunication::Comm(endpoint_, endpoint_.toString());
 		comm_->start();
-		BOOST_LOG_TRIVIAL(info) << "Started stub at " << endpoint_->toString();
+		BOOST_LOG_TRIVIAL(info) << "Started stub at " << endpoint_.toString();
 	}
 	catch (const std::exception&) {
 		// Failed to start stub
-		BOOST_LOG_TRIVIAL(fatal) << "Unable to start stub at " << endpoint_->toString();
+		BOOST_LOG_TRIVIAL(fatal) << "Unable to start stub at " << endpoint_.toString();
 		exit(1);
 	}
 
@@ -54,63 +35,116 @@ Stub::Stub(std::string endpoint,
 
 Stub::~Stub()
 {
-	delete endpoint_;
 	comm_->stop();
 }
 
 const MsgPassingCommunication::EndPoint& Stub::getEndpoint() const
 {
-	return (*endpoint_);
+	return endpoint_;
 }
 
 
 void Stub::run()
 {
-	BOOST_LOG_TRIVIAL(info) << endpoint_->toString() << " started running";
+	BOOST_LOG_TRIVIAL(info) << endpoint_.toString() << " started running";
 	MsgPassingCommunication::Message msg;
 	while (true) {
-		BOOST_LOG_TRIVIAL(info) << endpoint_->toString() << " waiting for message.";
+		BOOST_LOG_TRIVIAL(info) << endpoint_.toString() << " waiting for message.";
 		msg = comm_->getMessage();
-		BOOST_LOG_TRIVIAL(info) << endpoint_->toString() << "received messsage: " << msg.toString();
+		BOOST_LOG_TRIVIAL(info) << endpoint_.toString() << "received messsage.";
 	
 		std::unordered_map<std::string, std::string> attrs = msg.attributes();
 		// Map request
-		if (msg.command().compare("run_map") 
+		if (msg.command().compare("run_map") == 0 
 			&& msg.containsKey("output_directory") 
 			&& msg.containsKey("input_files")
 			&& msg.containsKey("partitions")) {
-			BOOST_LOG_TRIVIAL(info) << endpoint_->toString() << "received map request.";
+			BOOST_LOG_TRIVIAL(info) << endpoint_.toString() << "received map request.";
 			BOOST_LOG_TRIVIAL(info) << "map - input files:" << attrs["input_files"];
 			BOOST_LOG_TRIVIAL(info) << "map - output directory:" << attrs["output_directory"];
 			BOOST_LOG_TRIVIAL(info) << "map - number of partitions:" << attrs["partitions"];
 
 
 			// validate they are correct, if not send error message to controller
-			boost::filesystem::path ouput_dir {attrs["output_directory"]};
+			boost::filesystem::path output_dir {attrs["output_directory"]};
 			int partitions = std::stoi(attrs["partitions"]);
-			// parse input files
+			std::vector<boost::filesystem::path> input_files = parseFileList(attrs["input_files"]);
+			std::thread map_thread = std::thread(&Stub::runMapProcess, this, input_files, output_dir, partitions, parseEndpoint(attrs["from"]));
+			map_thread.detach();
+			BOOST_LOG_TRIVIAL(info) << "started map thread";
 		}
 		
 
 	}
 }
 
+void Stub::heartbeatThread(MsgPassingCommunication::EndPoint client_endpoint, 
+	int interval,
+	std::string message,
+	std::future<void> future)
+{
+	while (future.wait_for(std::chrono::milliseconds(1)) == std::future_status::timeout) {
+		comm_->postMessage(createHeartbeatMessage(client_endpoint, message));
+		std::this_thread::sleep_for(std::chrono::milliseconds(interval));
+	}
+}
 
+
+MsgPassingCommunication::Message Stub::createHeartbeatMessage(MsgPassingCommunication::EndPoint client_endpoint,
+	std::string message)
+{
+	MsgPassingCommunication::Message msg;
+	msg.to(client_endpoint);
+	msg.from(endpoint_);
+	msg.name("heartbeat");
+	msg.attribute("message", message);
+	return msg;
+}
+
+MsgPassingCommunication::Message Stub::createSuccessMessage(MsgPassingCommunication::EndPoint client_endpoint, 
+	std::string message)
+{
+	MsgPassingCommunication::Message msg;
+	msg.to(client_endpoint);
+	msg.from(endpoint_);
+	msg.name("success");
+	msg.attribute("message", message);
+	return msg;
+}
+
+MsgPassingCommunication::Message Stub::createFailureMessage(MsgPassingCommunication::EndPoint client_endpoint, 
+	std::string message)
+{
+	MsgPassingCommunication::Message msg;
+	msg.to(client_endpoint);
+	msg.from(endpoint_);
+	msg.name("failure");
+	msg.attribute("message", message);
+	return msg;
+}
 
 void Stub::runMapProcess(const std::vector<boost::filesystem::path>& files, 
 	const boost::filesystem::path& output_directory, 
-	int num_partitions)
+	int num_partitions,
+	MsgPassingCommunication::EndPoint client_endpoint)
 {
+	// Get the id of the thread
+	std::stringstream ss;
+	ss << std::this_thread::get_id();
+	std::string thread_id = ss.str();
+
+	// Start the heartbeat thread
+	std::promise<void> signal_exit;
+	std::future<void> future = signal_exit.get_future();
+	std::thread heartbeat_thread(&Stub::heartbeatThread, this, client_endpoint, 1000, "map thread: " + thread_id, std::move(future));
+
+
 	// Instantiate a Map object via the IMap interface
 	IMap<std::string, std::string>* mapper = create_map_(output_directory);
 
 	// Partition the input files
 	std::vector<std::vector<boost::filesystem::path>> partitions = partitionFiles(files, num_partitions);
 
-	// Get the id of the thread to use in the partition file names
-	std::stringstream ss;
-	ss << std::this_thread::get_id();
-	std::string thread_id = ss.str();
 
 	// Process the files in each partition with map
 	boost::filesystem::path input_file_path;
@@ -128,14 +162,19 @@ void Stub::runMapProcess(const std::vector<boost::filesystem::path>& files,
 			// File could not be opened
 			if (input_stream.fail() == 1)
 			{
-				// TODO: change to error message back to controller
-				BOOST_LOG_TRIVIAL(fatal) << "Fatal in Workflow run(): ifstream could not be opened for " << current_file.filename().string();
-				exit(1);
+
+				std::string error = "Error in map: ifstream could not be opened for " + current_file.filename().string();
+				// Send error message back to controller
+				BOOST_LOG_TRIVIAL(fatal) << error;
+				comm_->postMessage(createFailureMessage(client_endpoint, error));
+				// Signal the heartbeat thread to stop
+				signal_exit.set_value();
+				heartbeat_thread.join();
 			}
 
 			int success = 0;
 			int line_count = 0;
-			BOOST_LOG_TRIVIAL(info) << "Info in Workflow run(): Running map process for " << current_file.filename().string();
+			BOOST_LOG_TRIVIAL(info) << "Running map process for " << current_file.filename().string();
 			// Process all lines of the file via map
 			while (std::getline(input_stream, line))
 			{
@@ -146,9 +185,14 @@ void Stub::runMapProcess(const std::vector<boost::filesystem::path>& files,
 				// If the map member function of the map object does not return zero (which is a success), then log
 				if (success != 0)
 				{
-					// TODO: Change to erroer message back to controller
-					BOOST_LOG_TRIVIAL(error) << "Error in Workflow run(): Map did not successfully process entire file at line " << line_count << " of " << current_file.filename().string();
-					exit(1);
+					// Send error message back to controller
+					std::string error = "Error in map: Map did not successfully process entire file at line " + std::to_string(line_count) + " of " + current_file.filename().string();
+					BOOST_LOG_TRIVIAL(fatal) << error;
+					comm_->postMessage(createFailureMessage(client_endpoint, error));
+
+					// Signal the heartbeat thread to stop
+					signal_exit.set_value();
+					heartbeat_thread.join();
 				}
 			}
 
@@ -161,8 +205,16 @@ void Stub::runMapProcess(const std::vector<boost::filesystem::path>& files,
 		}
 	}
 
+	// Signal the heartbeat thread to stop
+	signal_exit.set_value();
+	heartbeat_thread.join();
+	std::string complete_message = "Map process " + thread_id + " complete.";
+	BOOST_LOG_TRIVIAL(info) << complete_message;
+	comm_->postMessage(createSuccessMessage(client_endpoint, complete_message));
 	delete mapper;
 }
+
+
 
 // Takes as input all the files that belong to a particular partition along with the partition id (e.g 0) and the directory to output the reduce file to.
 // Because we are running multiple reducers, we will get multiple reduce files at the end when the threads return.
@@ -170,8 +222,20 @@ void Stub::runMapProcess(const std::vector<boost::filesystem::path>& files,
 // The intermeidate reduce files should go in the intermediate dir, not the final output directory, which is why there is an output directory parameter.
 void Stub::runReduceProcess(const std::vector<boost::filesystem::path>& files, 
 	const boost::filesystem::path& output_directory, 
-	int partition)
+	int partition,
+	MsgPassingCommunication::EndPoint client_endpoint)
 {
+
+	// Get the id of the thread
+	std::stringstream ss;
+	ss << std::this_thread::get_id();
+	std::string thread_id = ss.str();
+
+	// Start the heartbeat thread
+	std::promise<void> signal_exit;
+	std::future<void> future = signal_exit.get_future();
+	std::thread heartbeat_thread(&Stub::heartbeatThread, this, client_endpoint, 1000, "reduce thread: " + thread_id, std::move(future));
+
 	// Create reducer
 	// The intermeidate reduce files should go in the intermediate dir, not the final output directory, which is why there is an output directory parameter.
 	IReduce<std::string, int>* reducer = create_reduce_(output_directory);
@@ -190,8 +254,9 @@ void Stub::runReduceProcess(const std::vector<boost::filesystem::path>& files,
 
 		if (sort_success != 0) {
 			// TODO: Change to message to controller
-			BOOST_LOG_TRIVIAL(fatal) << "Failed to process " << files[file].filename().string() << " with sort.";
-			exit(1);
+			std::string error = "Failed to process " + files[file].filename().string() + " with sort.";
+			BOOST_LOG_TRIVIAL(fatal) << error;
+			comm_->postMessage(createFailureMessage(client_endpoint, error));
 		}
 	}
 
@@ -201,12 +266,24 @@ void Stub::runReduceProcess(const std::vector<boost::filesystem::path>& files,
 	for (auto const& pair : sorter->getAggregateData())
 	{
 		reducer_success = reducer->reduce(pair.first, pair.second);
-		// TODO: Change to message to controller
+		
 		if (reducer_success != 0) {
-			BOOST_LOG_TRIVIAL(fatal) << "Failed to export to " << reducer->getOutputPath().string() << " with reduce.";
-			exit(1);
+
+			std::string error = "Failed to export to " + reducer->getOutputPath().string() + " with reduce.";
+			BOOST_LOG_TRIVIAL(fatal) << error;
+			comm_->postMessage(createFailureMessage(client_endpoint, error));
 		}
 	}
+
+	// Signal the heartbeat thread to stop
+	signal_exit.set_value();
+	heartbeat_thread.join();
+
+	// Send message to client telling them the operation finished
+	std::string complete_message = "Reduce process " + thread_id + " complete.";
+	BOOST_LOG_TRIVIAL(info) << complete_message;
+	comm_->postMessage(createSuccessMessage(client_endpoint, complete_message));
+
 	// Delete reducer
 	delete sorter;
 	delete reducer;
@@ -228,5 +305,42 @@ std::vector<std::vector<boost::filesystem::path>> Stub::partitionFiles(const std
 	}
 
 	return file_partitions;
+}
+
+MsgPassingCommunication::EndPoint Stub::parseEndpoint(std::string endpoint)
+{
+	std::string stub_host;
+	int stub_port;
+	size_t pos = endpoint.find(':');
+	if (pos != std::string::npos) {
+		stub_host = endpoint.substr(0, pos);
+		// Convert port to an integer
+		try {
+			stub_port = std::stoi(endpoint.substr(pos + 1));
+
+		}
+		catch (const std::exception&) {
+			// Port is not an integer
+			BOOST_LOG_TRIVIAL(fatal) << "Invalid endpoint " << endpoint;
+			exit(1);
+		}
+		return MsgPassingCommunication::EndPoint(stub_host, stub_port);
+	}
+	else {
+		BOOST_LOG_TRIVIAL(fatal) << "Invalid endpoint " << endpoint;
+		exit(1);
+	}
+}
+
+std::vector<boost::filesystem::path> Stub::parseFileList(std::string files)
+{
+	std::vector<boost::filesystem::path> file_paths;
+	std::stringstream s_stream(files); 
+	while (s_stream.good()) {
+		std::string substr;
+		std::getline(s_stream, substr, ','); 
+		file_paths.push_back(boost::filesystem::path{ substr });
+	}
+	return file_paths;
 }
 

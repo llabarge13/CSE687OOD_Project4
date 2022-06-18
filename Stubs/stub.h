@@ -1,5 +1,6 @@
 #pragma once
 #include <boost/filesystem.hpp>
+#include <future>
 #include "imap.h"
 #include "ireduce.h"
 #include "Comm.h"
@@ -22,7 +23,7 @@ public:
 
 
 private:
-	MsgPassingCommunication::EndPoint* endpoint_;
+	MsgPassingCommunication::EndPoint endpoint_;
 	MsgPassingCommunication::Comm* comm_;
 
 	buildMapper create_map_;
@@ -30,11 +31,22 @@ private:
 
 	// Partitions files into N partitions/groups
 	static std::vector<std::vector<boost::filesystem::path>> partitionFiles(const std::vector<boost::filesystem::path>& files, int partitions);
+	static MsgPassingCommunication::EndPoint parseEndpoint(std::string);
+	static std::vector<boost::filesystem::path> parseFileList(std::string files);
 
 
-	void runMapProcess(const std::vector<boost::filesystem::path>& files, const boost::filesystem::path& output_directory, int partitions);
-	void runReduceProcess(const std::vector<boost::filesystem::path>& files, const boost::filesystem::path& output_directory, int partition);
-	// create reduce proc
-	// create map proc
-	// heartbeat thread
+	void runMapProcess(const std::vector<boost::filesystem::path>& files, 
+		const boost::filesystem::path& output_directory, 
+		int partitions,
+		MsgPassingCommunication::EndPoint client_endpoint);
+
+	void runReduceProcess(const std::vector<boost::filesystem::path>& files,
+		const boost::filesystem::path& output_directory,
+		int partition,
+		MsgPassingCommunication::EndPoint client_endpoint);
+
+	void heartbeatThread(MsgPassingCommunication::EndPoint client_endpoint, int interval, std::string message, std::future<void> future);
+	MsgPassingCommunication::Message createHeartbeatMessage(MsgPassingCommunication::EndPoint client_endpoint, std::string message);
+	MsgPassingCommunication::Message createSuccessMessage(MsgPassingCommunication::EndPoint client_endpoint, std::string message);
+	MsgPassingCommunication::Message createFailureMessage(MsgPassingCommunication::EndPoint client_endpoint, std::string message);
 };
