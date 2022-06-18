@@ -11,8 +11,8 @@
       <AdditionalIncludeDirectories>$(BoostRoot);..\Interfaces;..\Sockets</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(BoostLib);$(SolutionDir)\MapReduce\$(IntDir);$(SolutionDir)\MapLibrary\$(IntDir);$(SolutionDir)\ReduceLibrary\$(IntDir);$(SolutionDir)\$(IntDir)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>MapLibrary.lib;ReduceLibrary.lib;executive.obj;workflow.obj;sorting.obj;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(BoostLib);$(SolutionDir)\MapReduce\$(IntDir);$(SolutionDir)\MapLibrary\$(IntDir);$(SolutionDir)\ReduceLibrary\$(IntDir);$(SolutionDir)\$(IntDir);$(SolutionDir)\Sockets\$(IntDir);$(SolutionDir)\Stubs\$(IntDir)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>stub.obj;BlockingQueue.obj;Comm.obj;Logger.obj;Message.obj;Sockets.obj;Utilities.obj;WindowsHelpers.obj;MapLibrary.lib;ReduceLibrary.lib;executive.obj;workflow.obj;sorting.obj;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

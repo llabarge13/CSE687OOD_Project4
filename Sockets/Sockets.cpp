@@ -45,7 +45,7 @@ SocketSystem::SocketSystem()
 SocketSystem::~SocketSystem()
 {
   int error = WSACleanup();
-   BOOST_LOG_TRIVIAL(debug) <<  ("  -- Socket System cleaning up\n");
+   BOOST_LOG_TRIVIAL(debug) <<  ("Socket System cleaning up\n");
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -229,7 +229,7 @@ std::string Socket::recvString(byte terminator)
     iResult = ::recv(socket_, buffer, buflen, 0);
     if (iResult == 0 || iResult == INVALID_SOCKET)
     {
-      //BOOST_LOG_TRIVIAL(info) <<("  -- invalid socket in Socket::recvString");
+      //BOOST_LOG_TRIVIAL(debug) <<("invalid socket in Socket::recvString");
       break;
     }
     if (buffer[0] == terminator)
@@ -324,7 +324,7 @@ SocketConnecter& SocketConnecter::operator=(SocketConnecter&& s)
 
 SocketConnecter::~SocketConnecter()
 {
-   BOOST_LOG_TRIVIAL(debug) <<  ("  -- SocketConnecter instance destroyed");
+   BOOST_LOG_TRIVIAL(debug) <<  ("SocketConnecter instance destroyed");
 }
 //----< request to connect to ip and port >----------------------------------
 
@@ -337,7 +337,7 @@ bool SocketConnecter::connect(const std::string& ip, size_t port)
   const char* pTemp = ip.c_str();
   iResult = getaddrinfo(pTemp, sPort.c_str(), &hints, &result);  // was DEFAULT_PORT
   if (iResult != 0) {
-     BOOST_LOG_TRIVIAL(debug) <<  ("  -- getaddrinfo failed with error: " + Conv<int>::toString(iResult));
+     BOOST_LOG_TRIVIAL(debug) <<  ("getaddrinfo failed with error: " + Conv<int>::toString(iResult));
     return false;
   }
 
@@ -369,7 +369,7 @@ bool SocketConnecter::connect(const std::string& ip, size_t port)
     socket_ = socket(ptr->ai_family, ptr->ai_socktype, ptr->ai_protocol);
     if (socket_ == INVALID_SOCKET) {
       int error = WSAGetLastError();
-       BOOST_LOG_TRIVIAL(debug) <<  ("\n  -- socket failed with error: " + Conv<int>::toString(error));
+       BOOST_LOG_TRIVIAL(debug) <<  ("socket failed with error: " + Conv<int>::toString(error));
       return false;
     }
 
@@ -377,7 +377,7 @@ bool SocketConnecter::connect(const std::string& ip, size_t port)
     if (iResult == SOCKET_ERROR) {
       socket_ = INVALID_SOCKET;
       int error = WSAGetLastError();
-       BOOST_LOG_TRIVIAL(debug) <<  ("  -- WSAGetLastError returned " + Conv<int>::toString(error));
+       BOOST_LOG_TRIVIAL(debug) <<  ("WSAGetLastError returned " + Conv<int>::toString(error));
       continue;
     }
     break;
@@ -387,7 +387,7 @@ bool SocketConnecter::connect(const std::string& ip, size_t port)
 
   if (socket_ == INVALID_SOCKET) {
     int error = WSAGetLastError();
-     BOOST_LOG_TRIVIAL(debug) <<  ("  -- unable to connect to server, error = " + Conv<int>::toString(error));
+     BOOST_LOG_TRIVIAL(debug) <<  ("unable to connect to server, error = " + Conv<int>::toString(error));
     return false;
   }
   return true;
@@ -439,22 +439,22 @@ SocketListener& SocketListener::operator=(SocketListener&& s)
 
 SocketListener::~SocketListener()
 {
-   BOOST_LOG_TRIVIAL(debug) <<  ("  -- SocketListener instance destroyed");
+   BOOST_LOG_TRIVIAL(debug) <<  ("SocketListener instance destroyed");
 }
 //----< binds SocketListener to a network adddress on local machine >--------
 
 bool SocketListener::bind()
 {
-   BOOST_LOG_TRIVIAL(debug) <<  ("  -- staring bind operation");
+   BOOST_LOG_TRIVIAL(debug) <<  ("staring bind operation");
 
   // Resolve the server address and port
 
   size_t uport = ::htons((u_short)port_);
-  BOOST_LOG_TRIVIAL(info) <<("  -- netstat uport = " + Utilities::Converter<size_t>::toString(uport));
+  BOOST_LOG_TRIVIAL(debug) <<("netstat uport = " + Utilities::Converter<size_t>::toString(uport));
   std::string sPort = Conv<size_t>::toString(uport);
   iResult = getaddrinfo(NULL, sPort.c_str(), &hints, &result);
   if (iResult != 0) {
-     BOOST_LOG_TRIVIAL(debug) <<  ("  -- getaddrinfo failed with error: " + Conv<int>::toString(iResult));
+     BOOST_LOG_TRIVIAL(debug) <<  ("getaddrinfo failed with error: " + Conv<int>::toString(iResult));
     return false;
   }
 
@@ -467,17 +467,17 @@ bool SocketListener::bind()
     socket_ = socket(pResult->ai_family, pResult->ai_socktype, pResult->ai_protocol);
     if (socket_ == INVALID_SOCKET) {
       int error = WSAGetLastError();
-       BOOST_LOG_TRIVIAL(debug) <<  ("  -- socket failed with error: " + Conv<int>::toString(error));
+       BOOST_LOG_TRIVIAL(debug) <<  ("socket failed with error: " + Conv<int>::toString(error));
       continue;
     }
-     BOOST_LOG_TRIVIAL(debug) <<  ("  -- server created ListenSocket");
+     BOOST_LOG_TRIVIAL(debug) <<  ("server created ListenSocket");
 
     // Setup the TCP listening socket
 
     iResult = ::bind(socket_, pResult->ai_addr, (int)pResult->ai_addrlen);
     if (iResult == SOCKET_ERROR) {
       int error = WSAGetLastError();
-       BOOST_LOG_TRIVIAL(debug) <<  ("  -- bind failed with error: " + Conv<int>::toString(error));
+       BOOST_LOG_TRIVIAL(debug) <<  ("bind failed with error: " + Conv<int>::toString(error));
       socket_ = INVALID_SOCKET;
       continue;
     }
@@ -488,22 +488,22 @@ bool SocketListener::bind()
     }
   }
   freeaddrinfo(result);
-   BOOST_LOG_TRIVIAL(debug) <<  ("  -- bind operation complete");
+   BOOST_LOG_TRIVIAL(debug) <<  ("bind operation complete");
   return true;
 }
 //----< put SocketListener in listen mode, doesn't block >-------------------
 
 bool SocketListener::listen()
 {
-   BOOST_LOG_TRIVIAL(debug) <<  ("  -- starting TCP listening socket setup");
+   BOOST_LOG_TRIVIAL(debug) <<  ("starting TCP listening socket setup");
   iResult = ::listen(socket_, SOMAXCONN);
   if (iResult == SOCKET_ERROR) {
     int error = WSAGetLastError();
-     BOOST_LOG_TRIVIAL(debug) <<  ("  -- listen failed with error: " + Conv<int>::toString(error));
+     BOOST_LOG_TRIVIAL(debug) <<  ("listen failed with error: " + Conv<int>::toString(error));
     socket_ = INVALID_SOCKET;
     return false;
   }
-   BOOST_LOG_TRIVIAL(debug) <<  ("  -- server TCP listening socket setup complete");
+   BOOST_LOG_TRIVIAL(debug) <<  ("server TCP listening socket setup complete");
   return true;
 }
 //----< accepts incoming requrests to connect - blocking call >--------------
@@ -515,9 +515,9 @@ Socket SocketListener::accept()
   if (!clientSocket.validState()) {
     acceptFailed_ = true;
     int error = WSAGetLastError();
-     BOOST_LOG_TRIVIAL(debug) <<  ("  -- server accept failed with error: " + Conv<int>::toString(error));
+     BOOST_LOG_TRIVIAL(debug) <<  ("server accept failed with error: " + Conv<int>::toString(error));
      BOOST_LOG_TRIVIAL(debug) <<  (
-      "  -- this occurs when application shuts down while listener thread is blocked on Accept call"
+      "this occurs when application shuts down while listener thread is blocked on Accept call"
     );
     return clientSocket;
   }

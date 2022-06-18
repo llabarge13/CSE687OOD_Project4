@@ -14,10 +14,13 @@
 #include <array>
 #include <boost/filesystem.hpp>
 #include <boost/container/map.hpp>
-#include "../MapReduce/sorting.h"
+#include "../Stubs/sorting.h"
+#include "../Stubs/stub.h"
 #include "../MapLibrary/maplibrary.h"
 #include "../ReduceLibrary/reducelibrary.h"
 #include "../MapReduce/workflow.h"
+
+typedef IMap<std::string, std::string>* (*buildMapper)(const boost::filesystem::path&);
 
 // Verify map writes to the correct file
 TEST(mapTest, checkOutputPath) {
@@ -244,18 +247,25 @@ TEST(reduceTest, checkReduceOutput) {
     reducer_output.close();
 }
 
+
 // Workflow tests
 TEST(WorkflowTest, testConstructor)
 {
+    SocketSystem ss;
 
     std::string tar_dir = ".\\shakespeare";
     std::string inter_dir = ".\\temp2";
     std::string out_dir = ".\\output";
-    std::string map_dll = ".\\dlls\\MapLibrary.dll";
-    std::string reduce_dll = ".\\dlls\\ReduceLibrary.dll";
+    std::vector<std::string> stubs = { "localhost:9091" };
+    int port = 8080;
 
+    // Dummy endpoint so workflow can connect to it
+    MsgPassingCommunication::EndPoint client_ep("localhost", 9091);
+    MsgPassingCommunication::Comm client_com(client_ep, "Client");
+    client_com.start();
 
-    Workflow workflow = Workflow(tar_dir, inter_dir, out_dir, map_dll, reduce_dll, 1, 1);
+    // Create workflow
+    Workflow workflow = Workflow(tar_dir, inter_dir, out_dir, 1, 1, port, stubs);
 
     std::string correct_tar_dir = ".\\shakespeare";
     boost::filesystem::path tar_path = workflow.getTargetDir();
@@ -269,25 +279,65 @@ TEST(WorkflowTest, testConstructor)
     boost::filesystem::path out_path = workflow.getOutDir();
     ASSERT_EQ(out_path.string(), correct_out_dir);
 
-    boost::filesystem::path map_path = workflow.getMapLibPath();
-    ASSERT_EQ(map_path.string(), map_dll);
-
-    boost::filesystem::path reduce_path = workflow.getReduceLibPath();
-    ASSERT_EQ(reduce_path.string(), reduce_dll);
+    client_com.stop();
 }
 
 TEST(WorkflowTest, testRun)
 {
+    SocketSystem ss;
     std::string tar_dir = ".\\shakespeare";
     std::string inter_dir = ".\\temp2";
     std::string out_dir = ".\\output";
     std::string map_dll = ".\\dlls\\MapLibrary.dll";
     std::string reduce_dll = ".\\dlls\\ReduceLibrary.dll";
+    std::vector<std::string> stubs = { "localhost:9091" };
+    int port = 8080;
 
-    Workflow workflow = Workflow(tar_dir, inter_dir, out_dir, map_dll, reduce_dll, 1, 1);
+    // Delete any files already in temp or output directories
+    for (boost::filesystem::directory_iterator end_dir_it, it(inter_dir); it != end_dir_it; ++it) {
+        boost::filesystem::remove_all(it->path());
+    }
+    for (boost::filesystem::directory_iterator end_dir_it, it(out_dir); it != end_dir_it; ++it) {
+        boost::filesystem::remove_all(it->path());
+    }
+    
+    // Load the DLLs for the stub
+    std::wstring widestr = std::wstring(map_dll.begin(), map_dll.end());
+    const wchar_t* widecstr = widestr.c_str();
+    buildMapper create_map;
+    buildReducer create_reduce;
+    HINSTANCE hDLL_map;
+    HINSTANCE hDLL_reduce;
+    hDLL_map = LoadLibraryEx(widecstr, NULL, NULL);   // Handle to map DLL
+    if (hDLL_map != NULL) {
+        create_map = (buildMapper)GetProcAddress(hDLL_map, "createMapper");
+    }
 
-   workflow.run();
-   //boost::filesystem::path success_file = boost::filesystem::path{ out_dir + "\\SUCCESS" };
-    //ASSERT_EQ(boost::filesystem::exists(success_file), true);*/
+    widestr = std::wstring(reduce_dll.begin(), reduce_dll.end());
+    widecstr = widestr.c_str();
+    hDLL_reduce = LoadLibraryEx(widecstr, NULL, NULL);   // Handle to map DLL
+    if (hDLL_reduce != NULL) {
+        create_reduce = (buildReducer)GetProcAddress(hDLL_reduce, "createReducer");
+    }
 
+    // Start a stub
+    Stub stub = Stub(stubs[0], create_map, create_reduce);
+
+    std::thread stub_thread([&stub] { stub.run(); });
+    stub_thread.detach();
+
+    // Run controller/workflow
+    Workflow workflow = Workflow(tar_dir, inter_dir, out_dir, 1, 1, port, stubs);
+    workflow.run();
+
+
+    stub.stop();
+
+    // Check the success file was written
+    boost::filesystem::path success_file = boost::filesystem::path{ out_dir + "\\SUCCESS" };
+    ASSERT_EQ(boost::filesystem::exists(success_file), true);
+
+    // Free the DLLs
+    FreeLibrary(hDLL_map);
+    FreeLibrary(hDLL_reduce);
 }

@@ -132,7 +132,7 @@ MsgPassingCommunication::Message Workflow::createMapMessage(const MsgPassingComm
 	msg.from(*(this->endpoint_));
 	msg.command("run_map");
 	msg.attribute("partitions", std::to_string(partitions));
-	msg.attribute("output_directory", boost::filesystem::absolute(this->intermediate_dir_).string());
+	msg.attribute("output_directory", boost::filesystem::canonical(this->intermediate_dir_).string());
 	
 
 	std::stringstream ss;
@@ -140,7 +140,7 @@ MsgPassingCommunication::Message Workflow::createMapMessage(const MsgPassingComm
 		if (it != files.begin()) {
 			ss << ",";
 		}
-		ss << boost::filesystem::absolute(*it).string();
+		ss << boost::filesystem::canonical(*it).string();
 	}
 	msg.attribute("input_files", ss.str());
 	return msg;
@@ -157,7 +157,7 @@ MsgPassingCommunication::Message Workflow::createReduceMessage(const MsgPassingC
 	msg.from(*(this->endpoint_));
 	msg.command("run_reduce");
 	msg.attribute("partition", std::to_string(partition));
-	msg.attribute("output_directory", boost::filesystem::absolute(output_directory).string());
+	msg.attribute("output_directory", boost::filesystem::canonical(output_directory).string());
 
 
 	std::stringstream ss;
@@ -165,7 +165,7 @@ MsgPassingCommunication::Message Workflow::createReduceMessage(const MsgPassingC
 		if (it != files.begin()) {
 			ss << ",";
 		}
-		ss << boost::filesystem::absolute(*it).string();
+		ss << boost::filesystem::canonical(*it).string();
 	}
 	msg.attribute("input_files", ss.str());
 	return msg;
@@ -333,6 +333,7 @@ void Workflow::run()
 	MsgPassingCommunication::Message received_message;
 	while (map_proc_complete != mapper_count) {
 		received_message = this->controller_->getMessage();
+		BOOST_LOG_TRIVIAL(debug) << "Received message: " << received_message.toString();
 
 		if (received_message.name().compare("heartbeat") == 0) {
 			BOOST_LOG_TRIVIAL(info) << "Map process heartbeat: " << received_message.attributes()["message"];
@@ -344,8 +345,9 @@ void Workflow::run()
 			map_proc_complete++;
 		}
 
+
+		// Map process failed
 		if (received_message.name().compare("failure") == 0) {
-			// Map process failed
 			BOOST_LOG_TRIVIAL(fatal) << "Map process failed. Error: " << received_message.attributes()["message"];
 			exit(1);
 		}
@@ -384,14 +386,14 @@ void Workflow::run()
 			BOOST_LOG_TRIVIAL(info) << "Reduce process heartbeat: " << received_message.attributes()["message"];
 		}
 
-		// A map process finished
+		// A reduce process finished
 		if (received_message.name().compare("success") == 0) {
 			BOOST_LOG_TRIVIAL(info) << "Reduce process completed: " << received_message.attributes()["message"];
 			reduce_proc_complete++;
 		}
 
+		// Reduce process failed
 		if (received_message.name().compare("failure") == 0) {
-			// Map process failed
 			BOOST_LOG_TRIVIAL(fatal) << "Reduce process failed. Error: " << received_message.attributes()["message"];
 			exit(1);
 		}

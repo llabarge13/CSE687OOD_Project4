@@ -19,6 +19,7 @@ public:
 	~Stub();
 
 	void run();
+	void stop();
 	const MsgPassingCommunication::EndPoint& getEndpoint() const;
 
 

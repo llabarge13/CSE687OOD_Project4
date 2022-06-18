@@ -94,6 +94,11 @@ void Stub::run()
 	}
 }
 
+void Stub::stop()
+{
+	comm_->stop();
+}
+
 void Stub::heartbeatThread(MsgPassingCommunication::EndPoint client_endpoint, 
 	int interval,
 	std::string message,
@@ -152,7 +157,7 @@ void Stub::runMapProcess(const std::vector<boost::filesystem::path>& files,
 	// Start the heartbeat thread
 	std::promise<void> signal_exit;
 	std::future<void> future = signal_exit.get_future();
-	std::thread heartbeat_thread(&Stub::heartbeatThread, this, client_endpoint, 1000, "map thread: " + thread_id, std::move(future));
+	std::thread heartbeat_thread(&Stub::heartbeatThread, this, client_endpoint, 2000, "map thread: " + thread_id, std::move(future));
 
 
 	// Instantiate a Map object via the IMap interface
@@ -250,7 +255,7 @@ void Stub::runReduceProcess(const std::vector<boost::filesystem::path>& files,
 	// Start the heartbeat thread
 	std::promise<void> signal_exit;
 	std::future<void> future = signal_exit.get_future();
-	std::thread heartbeat_thread(&Stub::heartbeatThread, this, client_endpoint, 1000, "reduce thread: " + thread_id, std::move(future));
+	std::thread heartbeat_thread(&Stub::heartbeatThread, this, client_endpoint, 2000, "reduce thread: " + thread_id, std::move(future));
 
 	// Create reducer
 	// The intermeidate reduce files should go in the intermediate dir, not the final output directory, which is why there is an output directory parameter.
@@ -277,14 +282,12 @@ void Stub::runReduceProcess(const std::vector<boost::filesystem::path>& files,
 	}
 
 	// Run reduce on the output from sort
-	BOOST_LOG_TRIVIAL(info) << "Running reduce operation...";
+	BOOST_LOG_TRIVIAL(info) << "Running reduce operation.";
 	int reducer_success = 0;
 	for (auto const& pair : sorter->getAggregateData())
 	{
 		reducer_success = reducer->reduce(pair.first, pair.second);
-		
 		if (reducer_success != 0) {
-
 			std::string error = "Failed to export to " + reducer->getOutputPath().string() + " with reduce.";
 			BOOST_LOG_TRIVIAL(fatal) << error;
 			comm_->postMessage(createFailureMessage(client_endpoint, error));

@@ -68,6 +68,9 @@
     <ProjectReference Include="..\Sockets\Sockets.vcxproj">
       <Project>{83391480-e0b4-4cac-9799-181216a3fc70}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\Stubs\Stubs.vcxproj">
+      <Project>{7b01193f-2b8b-4a03-b95d-ad19522a4209}</Project>
+    </ProjectReference>
   </ItemGroup>
   <ItemDefinitionGroup />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
@@ -103,7 +106,6 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
-      <AdditionalLibraryDirectories>$(BoostLib);$(SolutionDir)\MapReduce\$(IntDir);$(SolutionDir)\$(IntDir)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -137,7 +139,6 @@
       <SubSystem>Console</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <AdditionalLibraryDirectories>$(BoostLib);$(SolutionDir)\MapReduce\$(IntDir);$(SolutionDir)\$(IntDir)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
