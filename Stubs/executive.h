@@ -1,3 +1,12 @@
+// executive.h
+// Lyndsay LaBarge, Todd Hricik
+// CSE687 Object Oriented Design
+// 
+// June 19, 2022 - Project 4
+// 
+// StubExecutive class declaration.
+// StubExecutive class loads map and reduce DLLs 
+// and starts stub threads at the given endpoints
 #pragma once
 #include <boost\filesystem.hpp>
 #include <boost\log\trivial.hpp>
@@ -11,18 +20,18 @@
 typedef IMap<std::string, std::string>* (*buildMapper)(const boost::filesystem::path&);
 typedef IReduce<std::string, int>* (*buildReducer)(const boost::filesystem::path&);
 
-class Executive
+class StubExecutive
 {
 public:
-	Executive(std::string map_dll_file, 
+	StubExecutive(std::string map_dll_file, 
 		std::string reduce_dll_file,
 		std::vector<std::string> stub_endpoints);
-	~Executive();
-	void run();
+	~StubExecutive();
 
 private:
 	Sockets::SocketSystem ss_;
 
+	// Paths to map and reduce DLLs
 	boost::filesystem::path map_lib_path_;
 	boost::filesystem::path reduce_lib_path_;
 
@@ -41,10 +50,6 @@ private:
 	// Create the stubs
 	void createStubs(std::vector<std::string> stub_endpoints);
 
-	// Map/reduce stubs
-	std::vector<MsgPassingCommunication::EndPoint> stub_endpoints_;
-	std::vector<Stub> stubs_;
-
+	// Create a new stub and run it
 	static void stubProc(std::string endpoint, const buildMapper& map, const buildReducer& reduce);
 };
-

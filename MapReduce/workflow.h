@@ -7,6 +7,8 @@
 // 
 // May 12, 2022 - Updated for project 2
 //  Updated for reduce and map DLLs
+// June 19, 2022 - Updated for project 3
+//	Removed all DLL references, added Comm controller
 #pragma once
 #include "boost/filesystem.hpp"
 #include "imap.h"

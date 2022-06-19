@@ -8,6 +8,9 @@
 //
 // June 2, 2022 - Project 3
 //  Updated to use Boost's program options for command line args
+// June 19, 2022 - Project 4
+//  Removed DLL command line arguments and added
+//  args for controller port and stub endpoints
 #include <iostream>
 #include <string>
 #include <boost\log\core.hpp>
@@ -29,7 +32,7 @@ void init()
 
 int main(int argc, char* argv[])
 {
-    // init();
+    init();
 
     std::string input_dir;
     std::string inter_dir;

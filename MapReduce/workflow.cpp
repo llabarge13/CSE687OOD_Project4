@@ -12,6 +12,10 @@
 // 
 // June 2, 2022 - Project 3
 //	Updated to run map and reduce processes via threads
+//
+// June 19, 2022 - Project 4
+//	Updated to be a Comm socket and run map and processes
+//	via messages to stubs
 #include <string>
 #include <sstream>
 #include <iostream>
@@ -22,7 +26,6 @@
 #include <boost\filesystem\fstream.hpp>
 #include <boost\log\trivial.hpp>
 #include "workflow.h"
-
 #include "windows.h"
 
 // Constructor that creates boost::filesystem::path objects for the input directory, intermediate files directory and the output directory
@@ -39,8 +42,7 @@ Workflow::Workflow(std::string input_dir_arg,
 	this->num_mappers_ = num_mappers;
 	this->num_reducers_ = num_reducers;
 
-
-	// Start the controller socket and validate the stubs
+	// Start the controller socket and validate the stub endpoints
 	startController(controller_port, stub_endpoints);
 
 	// Set the input, temp and output directories
@@ -121,7 +123,7 @@ void Workflow::startController(int port, std::vector<std::string> stub_endpoints
 
 }
 
-// Creates a map message to pass to an endpoint
+// Creates a map request message to pass to an endpoint
 MsgPassingCommunication::Message Workflow::createMapMessage(const MsgPassingCommunication::EndPoint& destination,
 	const std::vector<boost::filesystem::path>& files,
 	int partitions)
@@ -268,26 +270,22 @@ void Workflow::setOutputDirectory(std::string s)
 // Getter for target_dir_ data member
 boost::filesystem::path Workflow::getTargetDir()
 {
-	// This function returns the boost::filesystem::path object private data member targetDir
 	return this->target_dir_;
 }
 // Getter for intermediate_dir_ data member
 boost::filesystem::path Workflow::getIntermediateDir()
 {
-	// This function returns the boost::filesystem::path object private data member intermediateDir
 	return this->intermediate_dir_;
 }
 // Getter for out_dir_ data member
 boost::filesystem::path Workflow::getOutDir()
 {
-	// This function returns the boost::filesystem::path object private data member outDir
 	return this->out_dir_;
 }
 
-// Run a workflow consisting of map, sort and reduce on all files in target directory
+// Runs map reduce process on files in input directory
 void Workflow::run()
 {
-
 	boost::filesystem::ifstream input_stream;
 	std::string key;
 	std::string value;
@@ -335,6 +333,7 @@ void Workflow::run()
 		received_message = this->controller_->getMessage();
 		BOOST_LOG_TRIVIAL(debug) << "Received message: " << received_message.toString();
 
+		// Heartbeat message
 		if (received_message.name().compare("heartbeat") == 0) {
 			BOOST_LOG_TRIVIAL(info) << "Map process heartbeat: " << received_message.attributes()["message"];
 		}
@@ -381,7 +380,9 @@ void Workflow::run()
 	int reduce_proc_complete = 0;
 	while (reduce_proc_complete != reducer_count) {
 		received_message = this->controller_->getMessage();
-	
+		BOOST_LOG_TRIVIAL(debug) << "Received message: " << received_message.toString();
+
+		// Heartbeat message
 		if (received_message.name().compare("heartbeat") == 0) {
 			BOOST_LOG_TRIVIAL(info) << "Reduce process heartbeat: " << received_message.attributes()["message"];
 		}

@@ -7,6 +7,9 @@
 // 
 // May 12, 2022 - Updated for Project 2
 //	Includes map and reduce DLL paths
+// June 19, 2022 - Update for Project 4
+//	Includes controller port and stub endpoints
+//	Removed map and reduce DLL paths
 #include <string>
 #include "executive.h"
 #include "workflow.h"

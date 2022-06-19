@@ -1,3 +1,11 @@
+// stub.cpp
+// Lyndsay LaBarge, Todd Hricik
+// CSE687 Object Oriented Design
+// 
+// June 19, 2022 - Project 4
+// 
+// Stub class implementation
+// A stub is a socket capable of running map or reduce processes.
 #include <boost\log\trivial.hpp>
 #include <thread>
 #include <chrono>
@@ -28,22 +36,25 @@ Stub::Stub(std::string endpoint,
 	}
 
 
-	// Save the mappers
+	// Save the DLLs functions
 	create_map_ = create_mapper;
 	create_reduce_ = create_reducer;
 }
 
 Stub::~Stub()
 {
+	// Shutdown the socket
 	comm_->stop();
 }
 
+
+// Gets the stub's endpoint
 const MsgPassingCommunication::EndPoint& Stub::getEndpoint() const
 {
 	return endpoint_;
 }
 
-
+// Listen for incoming map and reduce requests
 void Stub::run()
 {
 	BOOST_LOG_TRIVIAL(info) << endpoint_.toString() << " started running";
@@ -52,6 +63,8 @@ void Stub::run()
 		BOOST_LOG_TRIVIAL(info) << endpoint_.toString() << " waiting for message.";
 		msg = comm_->getMessage();
 		BOOST_LOG_TRIVIAL(info) << endpoint_.toString() << "received messsage.";
+
+		BOOST_LOG_TRIVIAL(debug) << msg.toString();
 	
 		std::unordered_map<std::string, std::string> attrs = msg.attributes();
 		// Map request
@@ -63,10 +76,12 @@ void Stub::run()
 			BOOST_LOG_TRIVIAL(info) << "map - input files:" << attrs["input_files"];
 			BOOST_LOG_TRIVIAL(info) << "map - output directory:" << attrs["output_directory"];
 			BOOST_LOG_TRIVIAL(info) << "map - number of partitions:" << attrs["partitions"];
-
+			// Parse the message
 			boost::filesystem::path output_dir {attrs["output_directory"]};
 			int partitions = std::stoi(attrs["partitions"]);
 			std::vector<boost::filesystem::path> input_files = parseFileList(attrs["input_files"]);
+
+			// Start the map thread
 			std::thread map_thread = std::thread(&Stub::runMapProcess, this, input_files, output_dir, partitions, parseEndpoint(attrs["from"]));
 			map_thread.detach();
 			BOOST_LOG_TRIVIAL(info) << "Started map operation.";
@@ -83,9 +98,12 @@ void Stub::run()
 			BOOST_LOG_TRIVIAL(info) << "reduce - output directory:" << attrs["output_directory"];
 			BOOST_LOG_TRIVIAL(info) << "reduce - partition:" << attrs["partition"];
 
+			// Parse the message
 			boost::filesystem::path output_dir{ attrs["output_directory"] };
 			int partition = std::stoi(attrs["partition"]);
 			std::vector<boost::filesystem::path> input_files = parseFileList(attrs["input_files"]);
+
+			// Start the reduce thread
 			std::thread reduce_thread = std::thread(&Stub::runReduceProcess, this, input_files, output_dir, partition, parseEndpoint(attrs["from"]));
 			reduce_thread.detach();
 			BOOST_LOG_TRIVIAL(info) << "Started reduce operation.";
@@ -96,9 +114,14 @@ void Stub::run()
 
 void Stub::stop()
 {
+	// Shutdowns the socket
 	comm_->stop();
 }
 
+
+// A hearbeat thread
+// Sends a heartbeat message to the given endpoint at the given interval
+// CITE: https://www.tutorialspoint.com/how-do-i-terminate-a-thread-in-cplusplus11
 void Stub::heartbeatThread(MsgPassingCommunication::EndPoint client_endpoint, 
 	int interval,
 	std::string message,
@@ -110,7 +133,7 @@ void Stub::heartbeatThread(MsgPassingCommunication::EndPoint client_endpoint,
 	}
 }
 
-
+// A heartbeat message
 MsgPassingCommunication::Message Stub::createHeartbeatMessage(MsgPassingCommunication::EndPoint client_endpoint,
 	std::string message)
 {
@@ -122,6 +145,8 @@ MsgPassingCommunication::Message Stub::createHeartbeatMessage(MsgPassingCommunic
 	return msg;
 }
 
+// A success message
+// Sent when map or reduce process completes
 MsgPassingCommunication::Message Stub::createSuccessMessage(MsgPassingCommunication::EndPoint client_endpoint, 
 	std::string message)
 {
@@ -133,6 +158,9 @@ MsgPassingCommunication::Message Stub::createSuccessMessage(MsgPassingCommunicat
 	return msg;
 }
 
+
+// A failure message
+// Sent when map or reduce fails
 MsgPassingCommunication::Message Stub::createFailureMessage(MsgPassingCommunication::EndPoint client_endpoint, 
 	std::string message)
 {
@@ -144,6 +172,7 @@ MsgPassingCommunication::Message Stub::createFailureMessage(MsgPassingCommunicat
 	return msg;
 }
 
+// Runs a map operation
 void Stub::runMapProcess(const std::vector<boost::filesystem::path>& files, 
 	const boost::filesystem::path& output_directory, 
 	int num_partitions,
@@ -229,13 +258,13 @@ void Stub::runMapProcess(const std::vector<boost::filesystem::path>& files,
 	// Signal the heartbeat thread to stop
 	signal_exit.set_value();
 	heartbeat_thread.join();
+
+	// Sent success message to client
 	std::string complete_message = "Map process " + thread_id + " complete.";
 	BOOST_LOG_TRIVIAL(info) << complete_message;
 	comm_->postMessage(createSuccessMessage(client_endpoint, complete_message));
 	delete mapper;
 }
-
-
 
 // Takes as input all the files that belong to a particular partition along with the partition id (e.g 0) and the directory to output the reduce file to.
 // Because we are running multiple reducers, we will get multiple reduce files at the end when the threads return.
@@ -326,6 +355,7 @@ std::vector<std::vector<boost::filesystem::path>> Stub::partitionFiles(const std
 	return file_partitions;
 }
 
+// Parses an endpoint string to an endpoint object e.g. localhost:8080
 MsgPassingCommunication::EndPoint Stub::parseEndpoint(std::string endpoint)
 {
 	std::string stub_host;
@@ -351,6 +381,8 @@ MsgPassingCommunication::EndPoint Stub::parseEndpoint(std::string endpoint)
 	}
 }
 
+// Parses a list of comma seperated files
+// CITE: https://www.tutorialspoint.com/parsing-a-comma-delimited-std-string-in-cplusplus
 std::vector<boost::filesystem::path> Stub::parseFileList(std::string files)
 {
 	std::vector<boost::filesystem::path> file_paths;

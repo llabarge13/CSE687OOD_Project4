@@ -1,3 +1,11 @@
+// stubprocs.cpp
+// Lyndsay LaBarge, Todd Hricik
+// CSE687 Object Oriented Design
+// 
+// June 19, 2022 - Project 4
+// 
+// Executable program that starts stub threads
+// at the endpoints provided on the command line.
 #include <iostream>
 #include <string>
 #include <iostream>
@@ -21,7 +29,7 @@ void init()
 
 int main(int argc, char* argv[])
 {
-    //init();
+    init();
 
     std::string map_dll;
     std::string reduce_dll;
@@ -64,7 +72,7 @@ int main(int argc, char* argv[])
     }
 
     // Start the stubs
-    Executive* executive = new Executive(map_dll, reduce_dll, stub_endpoints);
+    StubExecutive* executive = new StubExecutive(map_dll, reduce_dll, stub_endpoints);
 
 
     while (true);
